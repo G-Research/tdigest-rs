@@ -1,0 +1,14 @@
+[package]
+name = "tdigest_core"
+version = "0.0.1"
+edition = "2021"
+
+[workspace]
+resolver = "2"
+members = ["bindings/python"]
+
+[dependencies]
+anyhow = "1.0.79"
+itertools = "0.12.0"
+num = "0.4.1"
+num-traits = "0.2.17"

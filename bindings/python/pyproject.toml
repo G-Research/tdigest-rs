@@ -1,0 +1,74 @@
+[build-system]
+requires = ["maturin>=1.1,<2.0", "hatchling"]
+build-backend = "maturin"
+
+[project]
+name = "tdigest-rs"
+requires-python = ">=3.10"
+classifiers = ["Programming Language :: Rust"]
+dynamic = ["version"]
+description = "Simple Python package to compute TDigests, implemented in Rust"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[project.urls]
+Repository = "https://github.com/G-Research/tdigest-rs"
+Changelog = "https://github.com/G-Research/tdigest-rs/releases"
+
+[project.optional-dependencies]
+dev = [
+    "hypothesis",
+    "joblib",
+    "maturin",
+    "pytest",
+    "pytest-runner",
+    "pytest-xdist",
+    "scipy",
+    "ruff",
+]
+
+[tool.hatch.envs.dev]
+features = ["dev"]
+
+
+[tool.hatch.envs.dev.scripts]
+lint = [
+    "ruff check tdigest_rs/",
+    "cargo fmt --all --check",
+    "cargo clippy --all",
+]
+format = ["ruff format .", "ruff check --fix .", "cargo fmt --all"]
+release = ["lint", "test"]
+test = "pytest {args}"
+benchmark = "python benchmarks/run.py"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[tool.pytest]
+log_cli = true
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbea
+    "I", # isort
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+]

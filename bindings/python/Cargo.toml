@@ -1,0 +1,18 @@
+[package]
+name = "tdigest_rs"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+name = "tdigest_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20.3", features = [
+    "extension-module",
+    "abi3-py37",
+    "anyhow",
+] }
+numpy = "0.20.0"
+ndarray = "0.15.6"
+tdigest_core = { version = "0.0.1", path = "../../" }
