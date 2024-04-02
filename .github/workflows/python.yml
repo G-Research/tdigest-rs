@@ -18,11 +18,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ env.DEFAULT_PYTHON_VERSION }}
         uses: actions/setup-python@v5
+        id: setup-python
         with:
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
           check-latest: true
       - name: Lint
-        run: pipx run hatch run dev:lint
+        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:lint
         working-directory: bindings/python
 
   test:
@@ -37,6 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
+        id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
@@ -52,7 +54,7 @@ jobs:
             fi
           done
       - name: Test
-        run: pipx run hatch run dev:test
+        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:test
         working-directory: bindings/python
 
   build:
