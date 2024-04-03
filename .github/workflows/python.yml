@@ -40,13 +40,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
-      # pipx is not installed by default on macOS 14 arm64 runners
+      # pipx currently has permissions issues on macOS 14 arm64 runners
       # see https://github.com/actions/runner-images/issues/9256
-      - name: Install pipx
+      - name: Fix pipx permissions
         if: matrix.runner == 'macos-14'
         run: |
-          pip install pipx
-          echo PATH="$(pipx environment -V PIPX_BIN_DIR):$PATH" >> $GITHUB_ENV
+          for dir in "$PIPX_HOME" "$PIPX_BIN_DIR"; do
+            if [ -n "$dir" ]; then
+              sudo mkdir -p "$dir"
+              sudo chown -R $(id -u) "$dir"
+            fi
+          done
       - name: Test
         run: pipx run hatch run dev:test
         working-directory: bindings/python
