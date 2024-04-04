@@ -1,5 +1,9 @@
 # TDigest-rs
 
+<a href="https://pypi.org/project/tdigest-rs/">
+  <img src="https://img.shields.io/pypi/v/tdigest-rs.svg" alt="PyPi Latest Release"/>
+</a>
+
 Simple Python package to compute TDigests, implemented in Rust.
 
 ## Introduction
