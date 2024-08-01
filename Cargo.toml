@@ -11,5 +11,4 @@ members = ["bindings/python"]
 anyhow = "1.0.79"
 itertools = "0.13.0"
 num = "0.4.3"
-itertools = "0.13.0"
 num-traits = "0.2.19"
