@@ -62,6 +62,17 @@ digest2 = TDigest.from_array(arr=arr2)
 merged_digest = digest1.merge(digest2, delta=100.0)  # delta again defaults to 300.0
 ```
 
+### Updating TDigests
+
+```python
+arr = np.random.randn(1000)
+digest = TDigest.from_array(arr=arr1)
+
+# Buffer data points before updating
+buffer = np.random.randn(1)
+digest = digest.update(buffer, delta=300.0, merge_delta=100.0)
+```
+
 ### Serialising TDigests
 
 The ``TDigest`` object can be converted to a dictionary and JSON-serialised and is also pickleable.
