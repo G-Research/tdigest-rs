@@ -93,3 +93,9 @@ class TDigest:
                 return _TDigestInternal64
             case _:
                 raise TypeError(f"TDigest is not implemented for arr with type {arr.dtype}")
+
+    def update(
+        self, buffer: npt.NDArray[np.float32], delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
+    ) -> "TDigest":
+        buffer_digest = TDigest.from_array(buffer, delta)
+        return self.merge(buffer_digest, merge_delta)
