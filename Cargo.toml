@@ -8,7 +8,7 @@ resolver = "2"
 members = ["bindings/python"]
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 itertools = "0.13.0"
 num = "0.4.3"
 num-traits = "0.2.19"
