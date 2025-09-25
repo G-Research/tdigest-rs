@@ -1,6 +1,5 @@
 mod core;
 mod scale;
-mod simd;
 mod traits;
 
 use crate::{

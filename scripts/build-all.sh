@@ -17,41 +17,25 @@ ARCH=$(uname -m)
 get_build_args() {
     local variant="$1"
     case "$variant" in
-        "fast") echo "--release --features fast" ;;
-        "modern")
-            if [[ "$ARCH" == "arm64" ]] || [[ "$ARCH" == "aarch64" ]]; then
-                echo "--profile release-fast --features simd"
-            else
-                echo "--profile release-fast --features simd,avx2,sse2"
-            fi ;;
-        "size") echo "--profile release-size --features simd" ;;
-        "native") echo "--release --features simd" ;;
-        "dev-fast") echo "--profile dev-fast --features fast" ;;
+        "fast") echo "--release" ;;
+        "modern") echo "--profile release-fast" ;;
+        "size") echo "--profile release-size" ;;
+        "native") echo "--release" ;;
+        "dev-fast") echo "--profile dev-fast" ;;
         *) echo "Unknown variant: $variant" >&2; exit 1 ;;
     esac
 }
 
 get_rustflags() {
     local variant="$1"
-    if [[ "$ARCH" == "arm64" ]] || [[ "$ARCH" == "aarch64" ]]; then
-        # ARM64 configurations
-        case "$variant" in
-            "fast") echo "-C target-feature=+neon" ;;
-            "modern") echo "-C target-feature=+neon,+crc,+crypto" ;;
-            "size") echo "-C target-feature=+neon -C opt-level=s" ;;
-            "native") echo "-C target-cpu=native" ;;
-            "dev-fast") echo "-C target-feature=+neon -C opt-level=1" ;;
-        esac
-    else
-        # x86_64 configurations
-        case "$variant" in
-            "fast") echo "-C target-feature=+sse2" ;;
-            "modern") echo "-C target-feature=+avx2,+sse2,+fma" ;;
-            "size") echo "-C target-feature=+sse2 -C opt-level=s" ;;
-            "native") echo "-C target-cpu=native" ;;
-            "dev-fast") echo "-C target-feature=+sse2 -C opt-level=1" ;;
-        esac
-    fi
+    case "$variant" in
+        "fast") echo "" ;;
+        "modern") echo "" ;;
+        "size") echo "-C opt-level=s" ;;
+        "native") echo "-C target-cpu=native" ;;
+        "dev-fast") echo "-C opt-level=1" ;;
+        *) echo "" ;;
+    esac
 }
 
 print_header() {

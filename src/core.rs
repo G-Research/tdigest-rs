@@ -4,7 +4,6 @@ use num::Float;
 
 use crate::{
     scale::log_q_limit,
-    simd::{sum_weights_optimized, merge_sorted_optimized},
     traits::FloatConst,
 };
 
@@ -51,7 +50,34 @@ where
     let mut means = Vec::with_capacity(total_capacity);
     let mut weights = Vec::with_capacity(total_capacity);
 
-    merge_sorted_optimized(means1, weights1, means2, weights2, &mut means, &mut weights);
+    // Simple merge of two sorted arrays
+    let mut i = 0;
+    let mut j = 0;
+
+    while i < means1.len() && j < means2.len() {
+        if means1[i] <= means2[j] {
+            means.push(means1[i]);
+            weights.push(weights1[i]);
+            i += 1;
+        } else {
+            means.push(means2[j]);
+            weights.push(weights2[j]);
+            j += 1;
+        }
+    }
+
+    // Add remaining elements
+    while i < means1.len() {
+        means.push(means1[i]);
+        weights.push(weights1[i]);
+        i += 1;
+    }
+
+    while j < means2.len() {
+        means.push(means2[j]);
+        weights.push(weights2[j]);
+        j += 1;
+    }
 
     let mask = vec![true; means.len()];
     compute(&means, &weights, &mask, delta)
@@ -82,7 +108,7 @@ where
 
     if start > 0 {
         new_means.push(T::NEG_INFINITY);
-        let neg_inf_weight = sum_weights_optimized(&weights[..start]);
+        let neg_inf_weight: u64 = weights[..start].iter().map(|&w| w as u64).sum();
         new_weights.push(neg_inf_weight.try_into()
             .map_err(|_| anyhow::anyhow!("Weight sum too large for u32"))?);
         new_mask.push(true);
@@ -90,7 +116,7 @@ where
     let inf_exists = end < n;
     let mut inf_weight = 0u64;
     if inf_exists {
-        inf_weight = sum_weights_optimized(&weights[end..]);
+        inf_weight = weights[end..].iter().map(|&w| w as u64).sum();
     }
     let mean_slice = &means[start..end];
     let weight_slice = &weights[start..end];
@@ -98,7 +124,7 @@ where
     n = mean_slice.len();
 
     if n > 0 {
-        let total_weight_u32 = sum_weights_optimized(weight_slice) as u32;
+        let total_weight_u32: u32 = weight_slice.iter().copied().sum();
         let total_weight = T::from(total_weight_u32).unwrap();
         let mut cumulative_weight_u32 = 0u32;
         let mut sigma_mean = mean_slice[0];
@@ -160,7 +186,7 @@ pub fn compute_quantile<T>(means: &[T], weights: &[u32], x: T) -> Result<T>
 where
     T: Float + FloatConst,
 {
-    let total_weight = T::from(sum_weights_optimized(weights) as u32).unwrap();
+    let total_weight = T::from(weights.iter().copied().sum::<u32>()).unwrap();
 
     if total_weight == T::ZERO {
         return Ok(total_weight);
@@ -193,7 +219,7 @@ pub fn compute_trimmed_mean<T>(means: &[T], weights: &[u32], lower: T, upper: T)
 where
     T: Float + FloatConst,
 {
-    let n = T::from(sum_weights_optimized(weights) as u32).unwrap();
+    let n = T::from(weights.iter().copied().sum::<u32>()).unwrap();
     let min_count = lower * n;
     let max_count = upper * n;
 

@@ -14,11 +14,7 @@ num = "0.4.3"
 num-traits = "0.2.19"
 
 [features]
-default = ["simd"]
-simd = []      # Enable SIMD optimizations with runtime detection
-avx2 = []      # Compile with AVX2 support
-sse2 = []      # Compile with SSE2 support
-fast = ["simd", "sse2"]  # Balanced performance for most hardware
+default = []
 
 [profile.release]
 opt-level = 3           # Maximum optimization

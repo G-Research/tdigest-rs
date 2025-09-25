@@ -56,7 +56,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             name: "Linux x86_64"
             rustflags: "-C target-cpu=haswell -C target-feature=+avx2,+sse2,+fma"
-            features: "simd,avx2,sse2"
+            features: ""
             manylinux: auto
           # Linux x86_64 musl - Conservative compatibility
           - runner: ubuntu-latest
@@ -70,14 +70,14 @@ jobs:
             target: aarch64-unknown-linux-gnu
             name: "Linux ARM64"
             rustflags: "-C target-cpu=neoverse-n1"
-            features: "simd"
+            features: ""
             manylinux: auto
           # Linux ARM64 musl
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-musl
             name: "Linux ARM64 (musl)"
             rustflags: "-C target-cpu=cortex-a72"
-            features: "simd"
+            features: ""
             manylinux: auto
           # macOS Intel - Broad compatibility
           - runner: macos-13
@@ -91,7 +91,7 @@ jobs:
             target: aarch64-apple-darwin
             name: "macOS ARM64"
             rustflags: "-C target-cpu=apple-a14"
-            features: "simd"
+            features: ""
             manylinux: "off"
           # Windows x86_64 - Modern baseline
           - runner: windows-latest

@@ -26,7 +26,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Clippy
-        run: cargo clippy --verbose --features fast --all-targets --locked
+        run: cargo clippy --verbose --all-targets --locked
       - name: Format check
         run: cargo fmt --verbose --check
 
@@ -39,12 +39,12 @@ jobs:
           - runner: ubuntu-latest
             os-name: "Linux x86_64"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: "fast"
+            features: ""
           # macOS Intel - x86_64 with broader compatibility
           - runner: macos-13
             os-name: "macOS Intel"
             rustflags: "-C target-cpu=nehalem" # 2008+ Intel
-            features: "fast"
+            features: ""
           # macOS Apple Silicon - ARM64 optimization
           - runner: macos-14
             os-name: "macOS ARM64"
@@ -54,7 +54,7 @@ jobs:
           - runner: windows-latest
             os-name: "Windows x86_64"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: "fast"
+            features: ""
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
@@ -97,7 +97,7 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
             rustflags: "-C target-cpu=x86-64-v2"
-            features: "fast"
+            features: ""
             profile: "release"
           # ARM64 server (AWS Graviton, Apple Silicon servers)
           - runner: ubuntu-latest
