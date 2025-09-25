@@ -63,7 +63,7 @@ jobs:
             target: x86_64-unknown-linux-musl
             name: "Linux x86_64 (musl)"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: "fast"
+            features: ""
             manylinux: auto
           # Linux ARM64 - AWS Graviton optimized
           - runner: ubuntu-latest
@@ -84,7 +84,7 @@ jobs:
             target: x86_64-apple-darwin
             name: "macOS Intel"
             rustflags: "-C target-cpu=nehalem -C target-feature=+sse2"
-            features: "fast"
+            features: ""
             manylinux: "off"
           # macOS Apple Silicon - Native ARM64
           - runner: macos-14
@@ -98,7 +98,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             name: "Windows x86_64"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: "fast"
+            features: ""
             manylinux: "off"
       fail-fast: false
     runs-on: ${{ matrix.runner }}

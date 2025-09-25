@@ -1,232 +1,159 @@
-# TDigest Build Optimization Guide
+# Build Optimization Guide
 
-This document describes the optimized build configurations for the TDigest library, designed to maximize performance across different deployment scenarios while maintaining broad compatibility.
+This document explains the simplified build configurations available for TDigest-rs.
 
-## 🚀 Quick Start
+## Quick Start
 
-### Most Compatible Build (Recommended)
+### Standard Build (Recommended)
 ```bash
-# Use the "fast" feature for optimal balance of performance and compatibility
-RUSTFLAGS="-C target-feature=+sse2" cargo build --release --features fast
+cargo build --release
 ```
 
-### Maximum Performance Build
+This provides excellent performance for most use cases with standard compiler optimizations.
+
+## Build Profiles
+
+### Release (Default)
 ```bash
-# For modern hardware (2013+ Intel/AMD with AVX2)
-RUSTFLAGS="-C target-feature=+avx2,+sse2,+fma" \
-cargo build --profile release-fast --features "simd,avx2,sse2"
+cargo build --release
+```
+- **Optimization**: Maximum (opt-level = 3)
+- **LTO**: Thin (faster builds)
+- **Use case**: Production deployments
+- **Performance**: High
+
+### Release-Fast (Maximum Performance)
+```bash
+cargo build --profile release-fast
+```
+- **Optimization**: Maximum with full LTO
+- **LTO**: Fat (slower builds, maximum performance)
+- **Use case**: Performance-critical applications
+- **Performance**: Highest
+
+### Release-Size (Smallest Binary)
+```bash
+cargo build --profile release-size
+```
+- **Optimization**: Size-optimized (opt-level = "s")
+- **LTO**: Fat with size optimization
+- **Use case**: Embedded systems, minimizing binary size
+- **Performance**: Good, optimized for size
+
+### Dev-Fast (Development)
+```bash
+cargo build --profile dev-fast
+```
+- **Optimization**: Basic (opt-level = 1)
+- **Debug info**: Enabled
+- **Use case**: Development with some optimizations
+- **Performance**: Moderate, fast compile times
+
+## Platform-Specific Optimizations
+
+### Target CPU Optimization
+For maximum performance on your specific hardware:
+
+```bash
+RUSTFLAGS="-C target-cpu=native" cargo build --release
 ```
 
-## 📊 Optimization Levels
-
-### 1. **Fast** (Recommended Default)
-- **Target**: x86-64-v2 baseline (2009+ processors)
-- **Features**: `fast` (includes SIMD with runtime detection)
-- **SIMD**: SSE2 baseline with runtime AVX2 detection
-- **Compatibility**: ~99% of x86_64 systems
-- **Performance**: ~80% of maximum possible
+### Conservative Compatibility
+For broader hardware compatibility:
 
 ```bash
-RUSTFLAGS="-C target-feature=+sse2" cargo build --release --features fast
+RUSTFLAGS="-C target-cpu=x86-64-v2" cargo build --release
 ```
 
-### 2. **Modern** (High Performance)
-- **Target**: Haswell+ (2013+ Intel, 2017+ AMD)
-- **Features**: `simd,avx2,sse2`
-- **SIMD**: AVX2, FMA, SSE2
-- **Compatibility**: ~90% of server hardware
-- **Performance**: ~95% of maximum possible
+## Testing
 
+### Standard Tests
 ```bash
-RUSTFLAGS="-C target-feature=+avx2,+sse2,+fma" \
-cargo build --profile release-fast --features "simd,avx2,sse2"
+cargo test --release
 ```
 
-### 3. **Native** (Maximum Performance)
-- **Target**: Build machine's exact CPU
-- **Features**: All available
-- **SIMD**: All supported by build CPU
-- **Compatibility**: Only the build machine
-- **Performance**: 100% for that specific CPU
-
+### Performance Tests
 ```bash
-RUSTFLAGS="-C target-cpu=native" cargo build --profile release-fast --features simd
-```
-
-### 4. **Size** (Minimal Binary)
-- **Target**: x86-64-v2 baseline
-- **Features**: `simd` (runtime detection only)
-- **Optimization**: Size over speed
-- **Use Case**: Resource-constrained environments
-
-```bash
-cargo build --profile release-size --features simd
-```
-
-## 🎯 Target-Specific Configurations
-
-### x86_64 Servers
-```bash
-# AWS EC2, Google Cloud, Azure VMs (2013+)
-RUSTFLAGS="-C target-feature=+avx2,+sse2,+fma" \
-cargo build --release --features "simd,avx2,sse2"
-
-# Older servers (2009-2013)
-RUSTFLAGS="-C target-feature=+sse2" \
-cargo build --release --features "fast"
-```
-
-### ARM64 Servers
-```bash
-# AWS Graviton2/3, Apple Silicon servers
-RUSTFLAGS="-C target-cpu=neoverse-n1" \
-cargo build --release --features simd
-
-# Apple Silicon (M1/M2)
-RUSTFLAGS="-C target-cpu=apple-a14" \
-cargo build --release --features simd
-```
-
-### Container Deployments
-```bash
-# Docker with broad compatibility
-docker build --target compatible -t tdigest:compatible .
-
-# Docker with modern optimizations
-docker build --target modern -t tdigest:modern .
-
-# Size-optimized container
-docker build --target size-optimized -t tdigest:small .
-```
-
-## 🔬 Performance Characteristics
-
-| Configuration | Build Time | Binary Size | Performance | Compatibility |
-|---------------|------------|-------------|-------------|---------------|
-| **Fast**      | Normal     | Normal      | High        | Excellent     |
-| **Modern**    | Normal     | Normal      | Very High   | Good          |
-| **Native**    | Normal     | Normal      | Maximum     | Poor          |
-| **Size**      | Fast       | Small       | Good        | Excellent     |
-
-### Expected Performance Gains
-
-Based on our benchmarks with 100K data points:
-
-| Operation | Baseline | Fast | Modern | Native |
-|-----------|----------|------|---------|--------|
-| Construction | 12.35ms | 1.64ms | 1.2ms | 0.9ms |
-| Quantile Query | 5.4μs | 209ns | 150ns | 120ns |
-| Weight Sum | O(n) | O(n/4) | O(n/8) | O(n/8+) |
-
-## 🛠 Development Workflow
-
-### Local Development
-```bash
-# Fast development builds with some optimization
-cargo build --profile dev-fast --features fast
-
-# Quick testing
-cargo test --release --features fast
-
-# Performance regression testing
-cargo test --release --features fast test_performance_regression_large_dataset -- --nocapture
-```
-
-### CI/CD Integration
-
-The GitHub Actions workflows automatically build multiple variants:
-- **Test Matrix**: All platforms with appropriate optimizations
-- **Release Builds**: Optimized binaries for different deployment targets
-- **Python Wheels**: Platform-specific optimized wheels
-- **Docker Images**: Multi-variant container images
-
-### Feature Verification
-```bash
-# Check CPU features are enabled
-cargo test test_cpu_feature_detection -- --nocapture
-
-# SIMD performance comparison
-cargo test test_simd_performance_vs_scalar -- --nocapture
-
-# Verify optimizations are working
-RUST_LOG=debug cargo test --release --features fast
-```
-
-## 🐳 Docker Deployment
-
-### Pre-built Images
-```bash
-# Most compatible
-docker pull ghcr.io/yourorg/tdigest:latest-compatible
-
-# Modern hardware
-docker pull ghcr.io/yourorg/tdigest:latest-modern
-
-# Minimal size
-docker pull ghcr.io/yourorg/tdigest:latest-size-optimized
-```
-
-### Custom Builds
-```bash
-# Build all variants
-docker-compose build
-
-# Run performance comparison
-docker-compose up tdigest-benchmark
-
-# Size comparison
-docker images | grep tdigest
-```
-
-## 🔧 Troubleshooting
-
-### Performance Issues
-1. **Check CPU features**: `cat /proc/cpuinfo | grep -E "(avx2|sse2)"`
-2. **Verify SIMD activation**: Run `cargo test test_cpu_feature_detection -- --nocapture`
-3. **Profile your build**: Use `RUSTFLAGS="-C target-cpu=native -C opt-level=3"`
-
-### Compatibility Issues
-1. **Use conservative baseline**: `RUSTFLAGS="-C target-cpu=x86-64"`
-2. **Disable specific features**: Remove `avx2` from features
-3. **Runtime detection only**: Use only `simd` feature
-
-### Build Failures
-1. **Missing toolchain**: `rustup target add <target>`
-2. **Cross-compilation**: Install appropriate GCC cross-compiler
-3. **Feature conflicts**: Check feature combinations
-
-## 📈 Benchmarking
-
-### Standard Benchmarks
-```bash
-# Release performance test
 cargo test --release test_performance_regression_large_dataset -- --nocapture
-
-# SIMD effectiveness
-cargo test --release test_simd_performance_vs_scalar -- --nocapture
-
-# Memory usage
-cargo test --release test_memory_allocation_bounds -- --nocapture
 ```
 
-### Custom Benchmarking
+### All Tests with Logging
 ```bash
-# With criterion (if added)
-cargo bench --features fast
-
-# Manual timing
-time cargo run --release --features fast -- --benchmark
+RUST_LOG=debug cargo test --release
 ```
 
-## 🌍 Platform Matrix
+## Build Automation
 
-| Platform | Recommended Config | RUSTFLAGS | Features |
-|----------|-------------------|-----------|----------|
-| Linux x86_64 Server | Modern | `-C target-feature=+avx2,+sse2,+fma` | `simd,avx2,sse2` |
-| Linux x86_64 Desktop | Fast | `-C target-feature=+sse2` | `fast` |
-| AWS Graviton | ARM64 | `-C target-cpu=neoverse-n1` | `simd` |
-| Apple Silicon | ARM64 | `-C target-cpu=apple-a14` | `simd` |
-| Windows | Fast | `-C target-feature=+sse2` | `fast` |
-| Docker | Compatible | `-C target-feature=+sse2` | `fast` |
+The included build script supports multiple variants:
 
-This optimization setup provides excellent performance across diverse deployment scenarios while maintaining the reliability and compatibility that production systems require.
+```bash
+./scripts/build-all.sh fast modern size
+```
+
+Available variants:
+- **fast**: Standard release build
+- **modern**: Release-fast profile for maximum performance
+- **size**: Size-optimized build
+- **native**: Native CPU optimization
+- **dev-fast**: Development build with optimizations
+
+## Python Bindings
+
+To build the Python extension:
+
+```bash
+cd bindings/python
+maturin develop --release
+```
+
+For distribution wheels:
+```bash
+maturin build --release
+```
+
+## Performance Characteristics
+
+All build configurations provide excellent T-Digest performance:
+
+- **Compression**: Efficiently reduces large datasets to ~100-500 centroids
+- **Quantile Accuracy**: High accuracy for extreme quantiles (p99, p99.9)
+- **Memory Efficiency**: Minimal memory overhead
+- **Streaming**: Supports incremental updates via merge operations
+
+The performance differences between build configurations are primarily in compilation speed vs runtime optimization level, not in algorithmic complexity.
+
+## Benchmarking
+
+To benchmark your specific configuration:
+
+```bash
+cargo bench
+```
+
+For custom performance testing:
+```bash
+time cargo run --release -- --benchmark
+```
+
+## Cross-Compilation
+
+The simplified build system supports easy cross-compilation:
+
+```bash
+# For ARM64
+cargo build --release --target aarch64-unknown-linux-gnu
+
+# For Windows
+cargo build --release --target x86_64-pc-windows-gnu
+```
+
+## Summary
+
+The TDigest-rs library now uses a simplified build system focused on:
+
+1. **Reliability**: Standard library functions with excellent performance
+2. **Portability**: Works consistently across all platforms and architectures
+3. **Simplicity**: Easy to build, deploy, and debug
+4. **Performance**: Excellent quantile computation performance without complexity
+
+Choose the build profile that matches your deployment requirements and hardware constraints.

@@ -49,7 +49,7 @@ jobs:
           - runner: macos-14
             os-name: "macOS ARM64"
             rustflags: "-C target-cpu=apple-a14"
-            features: "simd"
+            features: ""
           # Windows x86_64 - Conservative baseline
           - runner: windows-latest
             os-name: "Windows x86_64"
@@ -91,7 +91,7 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             rustflags: "-C target-cpu=haswell -C target-feature=+avx2,+sse2,+fma"
-            features: "simd,avx2,sse2"
+            features: ""
             profile: "release-fast"
           # Conservative x86_64 compatibility
           - runner: ubuntu-latest
@@ -103,7 +103,7 @@ jobs:
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             rustflags: "-C target-cpu=neoverse-n1"
-            features: "simd"
+            features: ""
             profile: "release"
     runs-on: ${{ matrix.runner }}
     steps:
