@@ -154,7 +154,8 @@ jobs:
           RUSTFLAGS: "-C target-feature=+sse2"
         with:
           command: build
-          args: --release --locked --universal2
+          args: --release --locked
+          target: universal2-apple-darwin
           working-directory: bindings/python
 
       - name: Upload Universal Python Package
