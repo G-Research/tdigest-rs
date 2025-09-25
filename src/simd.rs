@@ -6,18 +6,11 @@ use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
 
-/// SIMD-optimized operations for T-Digest
-///
-/// This module provides vectorized implementations of common operations
-/// that benefit from SIMD acceleration on x86/x86_64 platforms.
 
-// Check for CPU feature support at compile time
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub mod x86 {
     use super::*;
 
-    /// SIMD-optimized weight summation using AVX2
-    /// Falls back to SSE2 if AVX2 not available, then to scalar
     pub fn sum_weights_simd(weights: &[u32]) -> u64 {
         #[cfg(target_feature = "avx2")]
         unsafe {
@@ -29,7 +22,6 @@ pub mod x86 {
             return sum_weights_sse2(weights);
         }
 
-        // Fallback to scalar
         weights.iter().map(|&w| w as u64).sum()
     }
 
@@ -43,17 +35,13 @@ pub mod x86 {
         let mut sum_vec = _mm256_setzero_si256();
 
         for chunk in chunks {
-            // Load 8 u32 values
             let vals = _mm256_loadu_si256(chunk.as_ptr() as *const __m256i);
 
-            // Add to accumulator (with saturation to prevent overflow)
             sum_vec = _mm256_add_epi32(sum_vec, vals);
         }
 
-        // Horizontal sum of the vector
         let mut result = horizontal_sum_avx2(sum_vec) as u64;
 
-        // Handle remainder
         for &weight in remainder {
             result += weight as u64;
         }
@@ -71,17 +59,13 @@ pub mod x86 {
         let mut sum_vec = _mm_setzero_si128();
 
         for chunk in chunks {
-            // Load 4 u32 values
             let vals = _mm_loadu_si128(chunk.as_ptr() as *const __m128i);
 
-            // Add to accumulator
             sum_vec = _mm_add_epi32(sum_vec, vals);
         }
 
-        // Horizontal sum of the vector
         let mut result = horizontal_sum_sse2(sum_vec) as u64;
 
-        // Handle remainder
         for &weight in remainder {
             result += weight as u64;
         }
@@ -92,7 +76,6 @@ pub mod x86 {
     #[cfg(target_feature = "avx2")]
     #[target_feature(enable = "avx2")]
     unsafe fn horizontal_sum_avx2(v: __m256i) -> u32 {
-        // Sum all 8 lanes of the AVX2 vector
         let sum128 = _mm_add_epi32(
             _mm256_castsi256_si128(v),
             _mm256_extracti128_si256(v, 1),
@@ -103,14 +86,11 @@ pub mod x86 {
     #[cfg(target_feature = "sse2")]
     #[target_feature(enable = "sse2")]
     unsafe fn horizontal_sum_sse2(v: __m128i) -> u32 {
-        // Sum all 4 lanes of the SSE2 vector
         let sum64 = _mm_add_epi32(v, _mm_shuffle_epi32(v, 0b01001110));
         let sum32 = _mm_add_epi32(sum64, _mm_shuffle_epi32(sum64, 0b10110001));
         _mm_cvtsi128_si32(sum32) as u32
     }
 
-    /// SIMD-optimized position search for quantile computation
-    /// This optimizes the linear scan in compute_quantile when we have many centroids
     pub fn find_quantile_position_simd<T>(
         weights: &[u32],
         target_position: T
@@ -119,11 +99,9 @@ pub mod x86 {
         T: Float + FloatConst + PartialOrd,
     {
         if weights.len() < 16 {
-            // Use scalar version for small arrays
             return find_quantile_position_scalar(weights, target_position);
         }
 
-        // For f64, we can use SIMD to vectorize the cumulative sum and comparison
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
             unsafe {
                 let target_f64 = *(&target_position as *const T as *const f64);
@@ -131,7 +109,6 @@ pub mod x86 {
             }
         }
 
-        // Fallback to scalar
         find_quantile_position_scalar(weights, target_position)
     }
 
@@ -163,12 +140,10 @@ pub mod x86 {
         let mut cumulative_pos = 0.0;
         let target_vec = _mm256_set1_pd(target_position);
 
-        // Process in chunks of 4
         let chunks = weights.chunks_exact(LANES);
         let remainder = chunks.remainder();
 
         for (chunk_idx, chunk) in chunks.enumerate() {
-            // Convert u32 weights to f64
             let w0 = chunk[0] as f64;
             let w1 = chunk[1] as f64;
             let w2 = chunk[2] as f64;
@@ -177,7 +152,6 @@ pub mod x86 {
             let weights_vec = _mm256_set_pd(w3, w2, w1, w0);
             let half_weights = _mm256_mul_pd(weights_vec, _mm256_set1_pd(0.5));
 
-            // Build cumulative positions for this chunk
             let pos0 = cumulative_pos + w0 * 0.5;
             let pos1 = pos0 + w0 * 0.5 + w1 * 0.5;
             let pos2 = pos1 + w1 * 0.5 + w2 * 0.5;
@@ -185,21 +159,17 @@ pub mod x86 {
 
             let positions = _mm256_set_pd(pos3, pos2, pos1, pos0);
 
-            // Compare with target
             let cmp_result = _mm256_cmp_pd(positions, target_vec, _CMP_GE_OQ);
             let mask = _mm256_movemask_pd(cmp_result);
 
             if mask != 0 {
-                // Found a position >= target, return the first one
                 let first_bit = mask.trailing_zeros() as usize;
                 return chunk_idx * LANES + first_bit;
             }
 
-            // Update cumulative position for next chunk
             cumulative_pos = pos3 + w3 * 0.5;
         }
 
-        // Handle remainder with scalar code
         let chunk_offset = chunks.len() * LANES;
         for (i, &weight) in remainder.iter().enumerate() {
             cumulative_pos += weight as f64 * 0.5;
@@ -212,13 +182,10 @@ pub mod x86 {
         weights.len().saturating_sub(1)
     }
 
-    /// SIMD-optimized binary search for quantile computation
-    /// This is most effective when searching through large sorted arrays
     pub fn binary_search_simd<T>(sorted_array: &[T], target: T) -> Result<usize, usize>
     where
         T: Float + PartialOrd,
     {
-        // For f64, we can use SIMD for comparison operations
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
             unsafe {
                 let array_f64 = std::slice::from_raw_parts(
@@ -231,7 +198,6 @@ pub mod x86 {
             }
         }
 
-        // Fallback to standard binary search
         sorted_array.binary_search_by(|x| x.partial_cmp(&target).unwrap_or(std::cmp::Ordering::Equal))
     }
 
@@ -239,47 +205,37 @@ pub mod x86 {
     #[target_feature(enable = "avx2")]
     unsafe fn binary_search_f64_simd(sorted_array: &[f64], target: f64) -> Result<usize, usize> {
         if sorted_array.len() < 16 {
-            // Not worth vectorizing for small arrays
             return sorted_array.binary_search_by(|x| x.partial_cmp(&target).unwrap_or(std::cmp::Ordering::Equal));
         }
 
         let mut left = 0;
         let mut right = sorted_array.len();
 
-        // Vectorized phase: process chunks when search range is large enough
         while right - left >= 8 {
             let mid = left + (right - left) / 2;
             let chunk_start = (mid / 8) * 8; // Align to 8-element boundary
 
             if chunk_start + 8 <= right && chunk_start >= left {
-                // Load 4 f64 values (AVX2 is 256-bit, so 4 x 64-bit)
                 let chunk = _mm256_loadu_pd(sorted_array.as_ptr().add(chunk_start));
                 let target_vec = _mm256_set1_pd(target);
 
-                // Compare with target
                 let cmp_result = _mm256_cmp_pd(chunk, target_vec, _CMP_LT_OQ);
                 let mask = _mm256_movemask_pd(cmp_result);
 
-                // Determine which half to search next
                 if mask == 0 {
-                    // All elements >= target, search left
                     right = chunk_start;
                 } else if mask == 0b1111 {
-                    // All elements < target, search right
                     left = chunk_start + 4;
                 } else {
-                    // Mixed results, narrow down to this chunk and use scalar search
                     left = chunk_start;
                     right = chunk_start + 4;
                     break;
                 }
             } else {
-                // Fall back to scalar binary search
                 break;
             }
         }
 
-        // Finish with scalar binary search
         let slice = &sorted_array[left..right];
         match slice.binary_search_by(|x| x.partial_cmp(&target).unwrap_or(std::cmp::Ordering::Equal)) {
             Ok(idx) => Ok(left + idx),
@@ -287,8 +243,6 @@ pub mod x86 {
         }
     }
 
-    /// SIMD-optimized merge of two sorted arrays with their weights
-    /// Most effective for large arrays where the merge cost dominates
     pub fn merge_sorted_simd<T>(
         left_means: &[T],
         left_weights: &[u32],
@@ -302,15 +256,12 @@ pub mod x86 {
         assert_eq!(left_means.len(), left_weights.len());
         assert_eq!(right_means.len(), right_weights.len());
 
-        // For small arrays, use scalar merge
         if left_means.len() + right_means.len() < 32 {
             merge_sorted_scalar(left_means, left_weights, right_means, right_weights,
                               output_means, output_weights);
             return;
         }
 
-        // For f64 specifically, we can use SIMD comparisons for the means
-        // while handling weights with scalar operations
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
             unsafe {
                 let left_f64 = std::slice::from_raw_parts(
@@ -327,7 +278,6 @@ pub mod x86 {
             }
         }
 
-        // Fallback to scalar merge
         merge_sorted_scalar(left_means, left_weights, right_means, right_weights,
                           output_means, output_weights);
     }
@@ -357,14 +307,12 @@ pub mod x86 {
             }
         }
 
-        // Add remaining elements from left
         while i < left_means.len() {
             output_means.push(left_means[i]);
             output_weights.push(left_weights[i]);
             i += 1;
         }
 
-        // Add remaining elements from right
         while j < right_means.len() {
             output_means.push(right_means[j]);
             output_weights.push(right_weights[j]);
@@ -372,8 +320,6 @@ pub mod x86 {
         }
     }
 
-    /// SIMD-accelerated merge for f64 arrays with weights
-    /// This uses SIMD for comparison operations but scalar for actual data movement
     unsafe fn merge_f64_with_weights_simd<T>(
         left_means: &[f64],
         left_weights: &[u32],
@@ -384,18 +330,12 @@ pub mod x86 {
     ) where
         T: Float + Copy,
     {
-        // For simplicity, we'll use the scalar merge but with potential
-        // for SIMD-optimized batch comparisons in the future
-        //
-        // The benefit here is mainly from the pre-allocation we did in merge_clusters
-        // and avoiding the iterator overhead of the original kmerge approach
 
         let mut i = 0;
         let mut j = 0;
 
         while i < left_means.len() && j < right_means.len() {
             if left_means[i] <= right_means[j] {
-                // Safe conversion from f64 back to T (since we know T was f64)
                 let mean_t = T::from(left_means[i]).unwrap();
                 output_means.push(mean_t);
                 output_weights.push(left_weights[i]);
@@ -408,7 +348,6 @@ pub mod x86 {
             }
         }
 
-        // Add remaining elements
         while i < left_means.len() {
             let mean_t = T::from(left_means[i]).unwrap();
             output_means.push(mean_t);
@@ -425,7 +364,6 @@ pub mod x86 {
     }
 }
 
-// Runtime CPU feature detection
 pub fn sum_weights_optimized(weights: &[u32]) -> u64 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
@@ -535,7 +473,6 @@ mod tests {
 
     #[test]
     fn test_simd_weight_sum_unaligned() {
-        // Test with sizes that don't align perfectly to SIMD lanes
         for size in [1, 3, 5, 7, 9, 15, 17, 31, 33, 63, 65] {
             let weights: Vec<u32> = (1..=size).collect();
             let expected: u64 = weights.iter().map(|&w| w as u64).sum();
@@ -574,7 +511,6 @@ mod tests {
         assert_eq!(simd_means, scalar_means, "SIMD and scalar merge results differ for means");
         assert_eq!(simd_weights, scalar_weights, "SIMD and scalar merge results differ for weights");
 
-        // Verify the merge is correct
         let expected_means = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let expected_weights = vec![10, 15, 20, 25, 30, 35, 40, 45];
         assert_eq!(simd_means, expected_means);
@@ -596,7 +532,6 @@ mod tests {
             &mut merged_means, &mut merged_weights
         );
 
-        // Verify correct merge order
         let expected_means = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0];
         let expected_weights = vec![100, 200, 300, 400, 500, 600, 700];
         assert_eq!(merged_means, expected_means);
@@ -621,7 +556,6 @@ mod tests {
         assert_eq!(merged_means, right_means);
         assert_eq!(merged_weights, right_weights);
 
-        // Test the other way around
         let mut merged_means2 = Vec::new();
         let mut merged_weights2 = Vec::new();
         merge_sorted_optimized(
@@ -636,13 +570,10 @@ mod tests {
 
     #[test]
     fn test_simd_performance_vs_scalar() {
-        // This test compares SIMD vs scalar performance
-        // Note: Results may vary based on CPU features available
 
         let large_weights: Vec<u32> = (1..=10000).collect();
         let total_expected: u64 = large_weights.iter().map(|&w| w as u64).sum();
 
-        // Time SIMD implementation
         let start = std::time::Instant::now();
         for _ in 0..100 {
             let simd_result = sum_weights_optimized(&large_weights);
@@ -650,7 +581,6 @@ mod tests {
         }
         let simd_time = start.elapsed();
 
-        // Time scalar implementation
         let start = std::time::Instant::now();
         for _ in 0..100 {
             let scalar_result: u64 = large_weights.iter().map(|&w| w as u64).sum();
@@ -661,8 +591,6 @@ mod tests {
         println!("SIMD time: {:?}, Scalar time: {:?}", simd_time, scalar_time);
         println!("SIMD speedup: {:.2}x", scalar_time.as_nanos() as f64 / simd_time.as_nanos() as f64);
 
-        // SIMD should be at least as fast as scalar (may be faster depending on CPU features)
-        // This is more of an informational test than a strict assertion
         if simd_time > scalar_time * 2 {
             println!("Warning: SIMD implementation significantly slower than scalar");
         }
@@ -670,14 +598,12 @@ mod tests {
 
     #[test]
     fn test_simd_merge_performance() {
-        // Test merge performance with large arrays
         let size = 1000;
         let left_means: Vec<f64> = (0..size).map(|i| i as f64 * 2.0).collect();
         let left_weights: Vec<u32> = vec![1; size];
         let right_means: Vec<f64> = (0..size).map(|i| i as f64 * 2.0 + 1.0).collect();
         let right_weights: Vec<u32> = vec![2; size];
 
-        // Time SIMD merge
         let start = std::time::Instant::now();
         for _ in 0..10 {
             let mut simd_means = Vec::new();
@@ -691,7 +617,6 @@ mod tests {
         }
         let simd_time = start.elapsed();
 
-        // Time scalar merge
         let start = std::time::Instant::now();
         for _ in 0..10 {
             let mut scalar_means = Vec::new();
