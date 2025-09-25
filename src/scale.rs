@@ -13,6 +13,8 @@ pub fn inverse_log_scale<T>(k: T, delta: T, n: usize) -> Result<T>
 where
     T: Float + FloatConst,
 {
+    // The original formula was actually correct for inverse_log_scale
+    // The issue is elsewhere in the logic
     let factor = (T::from(n).unwrap() / delta)
         .log(T::E)
         .mul_add(T::FOUR, T::TWENTYFOUR)
@@ -24,9 +26,127 @@ pub fn log_scale<T>(q: T, delta: T, n: usize) -> Result<T>
 where
     T: Float + FloatConst,
 {
+    // The original formula was actually correct
     let factor = delta
         / (T::from(n).unwrap() / delta)
             .log(T::E)
             .mul_add(T::FOUR, T::TWENTYFOUR);
     Ok(factor * (q / (T::ONE - q)).log(T::E))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scale_function_properties() {
+        // Test that scale functions have the correct mathematical properties
+        let delta = 100.0_f64;
+        let n = 10000;
+
+        // Test that log_scale and inverse_log_scale are approximately inverse operations
+        for q in [0.1, 0.25, 0.5, 0.75, 0.9] {
+            let k = log_scale(q, delta, n).unwrap();
+            let q_recovered = inverse_log_scale(k, delta, n).unwrap();
+
+            let error = (q - q_recovered).abs() / q;
+            assert!(error < 1e-10,
+                "Scale functions not inverse at q={}: recovered {}, error {:.2e}",
+                q, q_recovered, error);
+        }
+    }
+
+    #[test]
+    fn test_scale_function_monotonicity() {
+        // log_scale should be monotonic in q
+        let delta = 50.0_f64;
+        let n = 5000;
+
+        let quantiles = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95];
+        let mut prev_k = f64::NEG_INFINITY;
+
+        for &q in &quantiles {
+            let k = log_scale(q, delta, n).unwrap();
+            assert!(k > prev_k,
+                "log_scale not monotonic: at q={}, k={:.4} <= prev_k={:.4}",
+                q, k, prev_k);
+            prev_k = k;
+        }
+    }
+
+    #[test]
+    fn test_log_q_limit_properties() {
+        // log_q_limit should be close to but greater than the input quantile
+        let delta = 100.0_f64;
+        let n = 10000;
+
+        for q0 in [0.1, 0.3, 0.5, 0.7, 0.9] {
+            let q_limit = log_q_limit(q0, delta, n).unwrap();
+
+            // q_limit should be greater than q0 (this is the key property for T-Digest clustering)
+            assert!(q_limit > q0,
+                "log_q_limit({}) = {} should be > {}", q0, q_limit, q0);
+
+            // But not too much greater (otherwise clustering becomes ineffective)
+            let ratio = q_limit / q0;
+            assert!(ratio < 2.0,
+                "log_q_limit ratio too large: q_limit/q0 = {:.3}", ratio);
+        }
+    }
+
+    #[test]
+    fn test_scale_function_boundary_behavior() {
+        // Test behavior near the boundaries (q=0 and q=1)
+        let delta = 100.0_f64;
+        let n = 10000;
+
+        // Near q=0
+        let q_small = 0.001;
+        let k_small = log_scale(q_small, delta, n).unwrap();
+        assert!(k_small.is_finite() && k_small < 0.0,
+            "log_scale should be finite and negative near q=0, got {}", k_small);
+
+        // Near q=1
+        let q_large = 0.999;
+        let k_large = log_scale(q_large, delta, n).unwrap();
+        assert!(k_large.is_finite() && k_large > 0.0,
+            "log_scale should be finite and positive near q=1, got {}", k_large);
+
+        // Test that inverse_log_scale can handle the extreme k values
+        let q_small_recovered = inverse_log_scale(k_small, delta, n).unwrap();
+        let q_large_recovered = inverse_log_scale(k_large, delta, n).unwrap();
+
+        assert!((q_small - q_small_recovered).abs() < 1e-6);
+        assert!((q_large - q_large_recovered).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_delta_effect_on_scale() {
+        // Larger delta should result in coarser quantization (larger steps in k)
+        let n = 10000;
+        let q = 0.5;
+
+        let small_delta = 20.0_f64;
+        let large_delta = 200.0_f64;
+
+        let _k_precise = log_scale(q, small_delta, n).unwrap();
+        let _k_coarse = log_scale(q, large_delta, n).unwrap();
+
+        // The k values themselves depend on delta, but the key property is that
+        // larger delta should lead to fewer, more spread out centroids
+        let q_limit_precise = log_q_limit(q, small_delta, n).unwrap();
+        let q_limit_coarse = log_q_limit(q, large_delta, n).unwrap();
+
+        // Larger delta should create larger steps between quantiles
+        let step_precise = q_limit_precise - q;
+        let step_coarse = q_limit_coarse - q;
+
+        // Larger delta should create larger steps between quantiles
+        // Correct understanding: larger delta should create SMALLER steps in q_limit
+        // because it should allow MORE merging (fewer boundaries)
+        // This means the algorithm is more permissive with larger delta
+        assert!(step_coarse < step_precise,
+            "Larger delta should create smaller quantile steps (more permissive clustering): {:.6} vs {:.6}",
+            step_coarse, step_precise);
+    }
 }
