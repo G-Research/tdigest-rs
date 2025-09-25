@@ -382,7 +382,7 @@ checksum = "e1fc403891a21bcfb7c37834ba66a547a8f402146eba7265b5a6d88059c9ff2f"
 
 [[package]]
 name = "tdigest_core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "itertools",
@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "tdigest_rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ndarray 0.16.1",
  "numpy",

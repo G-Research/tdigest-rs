@@ -12,3 +12,36 @@ anyhow = "1.0.93"
 itertools = "0.13.0"
 num = "0.4.3"
 num-traits = "0.2.19"
+
+[features]
+default = ["simd"]
+simd = []      # Enable SIMD optimizations with runtime detection
+avx2 = []      # Compile with AVX2 support
+sse2 = []      # Compile with SSE2 support
+fast = ["simd", "sse2"]  # Balanced performance for most hardware
+
+[profile.release]
+opt-level = 3           # Maximum optimization
+lto = "thin"           # Link-time optimization (thin for faster builds)
+codegen-units = 1      # Better optimization at cost of compile time
+panic = "abort"        # Smaller binaries, faster execution
+strip = true          # Remove debug symbols from release builds
+
+[profile.release-fast]
+inherits = "release"
+lto = "fat"           # Full LTO for maximum performance
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.release-size]
+inherits = "release"
+opt-level = "s"       # Optimize for size
+lto = "fat"
+strip = true
+
+# Profile for development with some optimizations
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 1
+debug = true
