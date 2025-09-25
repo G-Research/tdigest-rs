@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "tdigest-rs"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = ["Programming Language :: Rust"]
 dynamic = ["version"]
 description = "Simple Python package to compute TDigests, implemented in Rust"
