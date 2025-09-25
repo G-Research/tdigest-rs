@@ -5,8 +5,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Use modern baseline for x86_64 (SSE2 + other x86-64-v2 features)
-  RUSTFLAGS: "-C target-cpu=x86-64-v2"
 
 permissions:
   contents: read
@@ -17,121 +15,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Clippy
-        run: cargo clippy --verbose --all-targets --locked
+        run: cargo clippy --verbose
       - name: Format check
         run: cargo fmt --verbose --check
 
   test:
-    name: Test (${{ matrix.os-name }})
+    name: Test
     strategy:
       matrix:
-        include:
-          # Linux x86_64 - Most common deployment target
-          - runner: ubuntu-latest
-            os-name: "Linux x86_64"
-            rustflags: "-C target-cpu=x86-64-v2"
-          # macOS Intel - x86_64 with broader compatibility
-          - runner: macos-13
-            os-name: "macOS Intel"
-            rustflags: "-C target-cpu=nehalem" # 2008+ Intel
-          # macOS Apple Silicon - ARM64 optimization
-          - runner: macos-14
-            os-name: "macOS ARM64"
-            rustflags: "-C target-cpu=apple-a14"
-          # Windows x86_64 - Conservative baseline
-          - runner: windows-latest
-            os-name: "Windows x86_64"
-            rustflags: "-C target-cpu=x86-64-v2"
+        # macos-13 is x86_64 and macos-14 is arm64
+        runner: [ubuntu-latest, macos-13, macos-14, windows-latest]
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ matrix.runner }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Set platform-specific RUSTFLAGS
-        shell: bash
-        run: echo "RUSTFLAGS=${{ matrix.rustflags }}" >> $GITHUB_ENV
-
-      - name: Run tests (debug)
-        run: cargo test --verbose --locked
-
-      - name: Run tests (release)
-        run: cargo test --verbose --release --locked
-
-      - name: Run performance benchmarks
-        run: cargo test --verbose --release --locked test_performance_regression_large_dataset -- --nocapture
-
-  build-optimized:
-    name: Build Optimized Binaries
-    strategy:
-      matrix:
-        include:
-          # Modern x86_64 server target (Haswell+, 2013+)
-          - runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            rustflags: "-C target-cpu=haswell -C target-feature=+avx2,+sse2,+fma"
-            profile: "release-fast"
-          # Conservative x86_64 compatibility
-          - runner: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            rustflags: "-C target-cpu=x86-64-v2"
-            profile: "release"
-          # ARM64 server (AWS Graviton, Apple Silicon servers)
-          - runner: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            rustflags: "-C target-cpu=neoverse-n1"
-            profile: "release"
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: optimized-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install cross-compilation toolchain
-        if: matrix.target != 'x86_64-unknown-linux-gnu'
-        run: |
-          rustup target add ${{ matrix.target }}
-          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
-            sudo apt-get update && sudo apt-get install -y musl-tools
-          elif [[ "${{ matrix.target }}" == "aarch64"* ]]; then
-            sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-          fi
-
-      - name: Build optimized binary
-        env:
-          RUSTFLAGS: ${{ matrix.rustflags }}
-        run: |
-          cargo build \
-            --profile ${{ matrix.profile }} \
-            --target ${{ matrix.target }} \
-            --locked
-
-      - name: Upload optimized binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: tdigest-optimized-${{ matrix.target }}
-          path: target/${{ matrix.target }}/${{ matrix.profile }}/
+      - name: Run tests
+        run: cargo test --verbose

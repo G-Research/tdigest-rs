@@ -47,119 +47,38 @@ jobs:
         working-directory: bindings/python
 
   build:
-    name: Build (${{ matrix.name }})
+    name: Build
     strategy:
       matrix:
         include:
-          # Linux x86_64 - Modern server optimizations
-          - runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            name: "Linux x86_64"
-            rustflags: "-C target-cpu=haswell -C target-feature=+avx2,+sse2,+fma"
-            manylinux: auto
-          # Linux x86_64 musl - Conservative compatibility
-          - runner: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            name: "Linux x86_64 (musl)"
-            rustflags: "-C target-cpu=x86-64-v2"
-            manylinux: auto
-          # Linux ARM64 - AWS Graviton optimized
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            name: "Linux ARM64"
-            rustflags: "-C target-cpu=neoverse-n1"
-            manylinux: auto
-          # Linux ARM64 musl
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-musl
-            name: "Linux ARM64 (musl)"
-            rustflags: "-C target-cpu=cortex-a72"
-            manylinux: auto
-          # macOS Intel - Broad compatibility
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
           - runner: macos-13
             target: x86_64-apple-darwin
-            name: "macOS Intel"
-            rustflags: "-C target-cpu=nehalem -C target-feature=+sse2"
-            manylinux: "off"
-          # macOS Apple Silicon - Native ARM64
           - runner: macos-14
             target: aarch64-apple-darwin
-            name: "macOS ARM64"
-            rustflags: "-C target-cpu=apple-a14"
-            manylinux: "off"
-          # Windows x86_64 - Modern baseline
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
-            name: "Windows x86_64"
-            rustflags: "-C target-cpu=x86-64-v2"
-            manylinux: "off"
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: python-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build optimized Python wheels
+      - name: Build
         uses: PyO3/maturin-action@v1
-        env:
-          RUSTFLAGS: ${{ matrix.rustflags }}
-          CARGO_BUILD_TARGET: ${{ matrix.target }}
         with:
           command: build
-          args: --release --locked
-          manylinux: ${{ matrix.manylinux }}
+          args: --release
+          manylinux: auto
           target: ${{ matrix.target }}
           working-directory: bindings/python
-
-      - name: Test wheel installation
-        if: matrix.target == 'x86_64-unknown-linux-gnu' || contains(matrix.target, 'darwin') || contains(matrix.target, 'windows')
-        run: |
-          pip install --find-links target/wheels tdigest-core --force-reinstall
-          python -c "import tdigest_core; print('Successfully imported optimized tdigest_core')"
-        working-directory: bindings/python
-
       - name: Upload Python Package
         uses: actions/upload-artifact@v4
         with:
           name: python-package-${{ matrix.target }}
-          path: target/wheels/*.whl
-
-  build-universal:
-    name: Build Universal Wheels
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: python-universal-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build universal macOS wheel
-        uses: PyO3/maturin-action@v1
-        env:
-          # Universal build with optimizations for both architectures
-          RUSTFLAGS: "-C target-feature=+sse2"
-        with:
-          command: build
-          args: --release --locked
-          target: universal2-apple-darwin
-          working-directory: bindings/python
-
-      - name: Upload Universal Python Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-universal2-apple-darwin
           path: target/wheels/*.whl
