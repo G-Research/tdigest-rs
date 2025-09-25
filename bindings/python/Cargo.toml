@@ -1,6 +1,6 @@
 [package]
 name = "tdigest_rs"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [lib]
@@ -15,4 +15,4 @@ pyo3 = { version = "0.26.0", features = [
 ] }
 numpy = "0.26.0"
 ndarray = "0.16.1"
-tdigest_core = { version = "0.2.0", path = "../../" }
+tdigest_core = { version = "0.3.0", path = "../../" }
