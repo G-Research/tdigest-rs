@@ -39,22 +39,18 @@ jobs:
           - runner: ubuntu-latest
             os-name: "Linux x86_64"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: ""
           # macOS Intel - x86_64 with broader compatibility
           - runner: macos-13
             os-name: "macOS Intel"
             rustflags: "-C target-cpu=nehalem" # 2008+ Intel
-            features: ""
           # macOS Apple Silicon - ARM64 optimization
           - runner: macos-14
             os-name: "macOS ARM64"
             rustflags: "-C target-cpu=apple-a14"
-            features: ""
           # Windows x86_64 - Conservative baseline
           - runner: windows-latest
             os-name: "Windows x86_64"
             rustflags: "-C target-cpu=x86-64-v2"
-            features: ""
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
@@ -74,13 +70,13 @@ jobs:
         run: echo "RUSTFLAGS=${{ matrix.rustflags }}" >> $GITHUB_ENV
 
       - name: Run tests (debug)
-        run: cargo test --verbose --features ${{ matrix.features }} --locked
+        run: cargo test --verbose --locked
 
       - name: Run tests (release)
-        run: cargo test --verbose --release --features ${{ matrix.features }} --locked
+        run: cargo test --verbose --release --locked
 
       - name: Run performance benchmarks
-        run: cargo test --verbose --release --features ${{ matrix.features }} --locked test_performance_regression_large_dataset -- --nocapture
+        run: cargo test --verbose --release --locked test_performance_regression_large_dataset -- --nocapture
 
   build-optimized:
     name: Build Optimized Binaries
@@ -91,19 +87,16 @@ jobs:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             rustflags: "-C target-cpu=haswell -C target-feature=+avx2,+sse2,+fma"
-            features: ""
             profile: "release-fast"
           # Conservative x86_64 compatibility
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
             rustflags: "-C target-cpu=x86-64-v2"
-            features: ""
             profile: "release"
           # ARM64 server (AWS Graviton, Apple Silicon servers)
           - runner: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             rustflags: "-C target-cpu=neoverse-n1"
-            features: ""
             profile: "release"
     runs-on: ${{ matrix.runner }}
     steps:
@@ -135,7 +128,6 @@ jobs:
           cargo build \
             --profile ${{ matrix.profile }} \
             --target ${{ matrix.target }} \
-            --features ${{ matrix.features }} \
             --locked
 
       - name: Upload optimized binary
