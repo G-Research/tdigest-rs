@@ -3,7 +3,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::*;
 
-use tdigest_core::TDigest;
+use tdigest_core::{TDigest, Delta};
+use std::num::NonZeroU32;
 
 macro_rules! generate {
     ($name: ident, $type: ident) => {
@@ -21,11 +22,12 @@ macro_rules! generate {
 
             #[getter]
             fn weights<'py>(&self, py: Python<'py>) -> PyResult<&'py PyArray1<u32>> {
-                Ok(PyArray1::from_vec(py, self.inner.weights.clone()))
+                let weights: Vec<u32> = self.inner.weights().map(|w| w.get()).collect();
+                Ok(PyArray1::from_vec(py, weights))
             }
 
             fn __len__(&self) -> PyResult<usize> {
-                Ok(self.inner.means.len())
+                Ok(self.inner.len())
             }
 
             #[classmethod]
@@ -40,6 +42,7 @@ macro_rules! generate {
                 }
                 let arr = arr.as_array().to_vec();
                 py.allow_threads(|| {
+                    let delta = Delta::new(delta)?;
                     Ok(Self {
                         inner: TDigest::from_array(&arr, delta)?,
                     })
@@ -61,11 +64,16 @@ macro_rules! generate {
                     return Err(PyValueError::new_err("Means must be non-empty!"));
                 }
                 let arr = arr.as_array().to_vec();
-                let weights = weights.as_array().to_vec();
+                let weights_vec = weights.as_array().to_vec();
+                let weights_nonzero: Result<Vec<NonZeroU32>, _> = weights_vec.iter()
+                    .map(|&w| NonZeroU32::new(w).ok_or_else(|| PyValueError::new_err("Weights cannot be zero")))
+                    .collect();
+                let weights_nonzero = weights_nonzero?;
 
                 py.allow_threads(|| {
+                    let delta = Delta::new(delta)?;
                     Ok(Self {
-                        inner: TDigest::from_means_weights(&arr, &weights, delta)?,
+                        inner: TDigest::from_means_weights(&arr, &weights_nonzero, delta)?,
                     })
                 })
             }
@@ -84,15 +92,13 @@ macro_rules! generate {
 
             fn merge(&self, py: Python, other: &Self, delta: $type) -> PyResult<Self> {
                 py.allow_threads(|| {
+                    let delta = Delta::new(delta)?;
                     Ok(Self {
                         inner: self.inner.merge(&other.inner, delta)?,
                     })
                 })
             }
 
-            fn n_zero_weights(&self) -> PyResult<usize> {
-                Ok(self.inner.n_zero_weights()?)
-            }
         }
     };
 }
