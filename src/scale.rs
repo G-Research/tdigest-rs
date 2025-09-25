@@ -45,9 +45,13 @@ mod tests {
             let q_recovered = inverse_log_scale(k, delta, n).unwrap();
 
             let error = (q - q_recovered).abs() / q;
-            assert!(error < 1e-10,
+            assert!(
+                error < 1e-10,
                 "Scale functions not inverse at q={}: recovered {}, error {:.2e}",
-                q, q_recovered, error);
+                q,
+                q_recovered,
+                error
+            );
         }
     }
 
@@ -61,9 +65,13 @@ mod tests {
 
         for &q in &quantiles {
             let k = log_scale(q, delta, n).unwrap();
-            assert!(k > prev_k,
+            assert!(
+                k > prev_k,
                 "log_scale not monotonic: at q={}, k={:.4} <= prev_k={:.4}",
-                q, k, prev_k);
+                q,
+                k,
+                prev_k
+            );
             prev_k = k;
         }
     }
@@ -76,12 +84,20 @@ mod tests {
         for q0 in [0.1, 0.3, 0.5, 0.7, 0.9] {
             let q_limit = log_q_limit(q0, delta, n).unwrap();
 
-            assert!(q_limit > q0,
-                "log_q_limit({}) = {} should be > {}", q0, q_limit, q0);
+            assert!(
+                q_limit > q0,
+                "log_q_limit({}) = {} should be > {}",
+                q0,
+                q_limit,
+                q0
+            );
 
             let ratio = q_limit / q0;
-            assert!(ratio < 2.0,
-                "log_q_limit ratio too large: q_limit/q0 = {:.3}", ratio);
+            assert!(
+                ratio < 2.0,
+                "log_q_limit ratio too large: q_limit/q0 = {:.3}",
+                ratio
+            );
         }
     }
 
@@ -92,13 +108,19 @@ mod tests {
 
         let q_small = 0.001;
         let k_small = log_scale(q_small, delta, n).unwrap();
-        assert!(k_small.is_finite() && k_small < 0.0,
-            "log_scale should be finite and negative near q=0, got {}", k_small);
+        assert!(
+            k_small.is_finite() && k_small < 0.0,
+            "log_scale should be finite and negative near q=0, got {}",
+            k_small
+        );
 
         let q_large = 0.999;
         let k_large = log_scale(q_large, delta, n).unwrap();
-        assert!(k_large.is_finite() && k_large > 0.0,
-            "log_scale should be finite and positive near q=1, got {}", k_large);
+        assert!(
+            k_large.is_finite() && k_large > 0.0,
+            "log_scale should be finite and positive near q=1, got {}",
+            k_large
+        );
 
         let q_small_recovered = inverse_log_scale(k_small, delta, n).unwrap();
         let q_large_recovered = inverse_log_scale(k_large, delta, n).unwrap();

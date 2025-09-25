@@ -2,10 +2,7 @@ use anyhow::Result;
 use itertools::izip;
 use num::Float;
 
-use crate::{
-    scale::log_q_limit,
-    traits::FloatConst,
-};
+use crate::{scale::log_q_limit, traits::FloatConst};
 
 pub fn argsort<T>(arr: &[T]) -> Result<Vec<usize>>
 where
@@ -13,7 +10,9 @@ where
 {
     let mut indices = (0..arr.len()).collect::<Vec<usize>>();
     indices.sort_by(|&i, &j| {
-        arr[i].partial_cmp(&arr[j]).unwrap_or(std::cmp::Ordering::Equal)
+        arr[i]
+            .partial_cmp(&arr[j])
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
     Ok(indices)
 }
@@ -109,8 +108,11 @@ where
     if start > 0 {
         new_means.push(T::NEG_INFINITY);
         let neg_inf_weight: u64 = weights[..start].iter().map(|&w| w as u64).sum();
-        new_weights.push(neg_inf_weight.try_into()
-            .map_err(|_| anyhow::anyhow!("Weight sum too large for u32"))?);
+        new_weights.push(
+            neg_inf_weight
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Weight sum too large for u32"))?,
+        );
         new_mask.push(true);
     }
     let inf_exists = end < n;
@@ -174,8 +176,11 @@ where
 
     if inf_exists {
         new_means.push(T::INFINITY);
-        new_weights.push(inf_weight.try_into()
-            .map_err(|_| anyhow::anyhow!("Positive infinity weight sum too large for u32"))?);
+        new_weights.push(
+            inf_weight
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Positive infinity weight sum too large for u32"))?,
+        );
         new_mask.push(true);
     }
 

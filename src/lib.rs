@@ -22,7 +22,10 @@ where
             return Err(anyhow::anyhow!("Delta must be positive, got {:?}", value));
         }
         if value > T::from(10000).unwrap() {
-            return Err(anyhow::anyhow!("Delta too large (> 10000), got {:?}", value));
+            return Err(anyhow::anyhow!(
+                "Delta too large (> 10000), got {:?}",
+                value
+            ));
         }
         Ok(Delta(value))
     }
@@ -30,7 +33,6 @@ where
     pub fn value(&self) -> T {
         self.0
     }
-
 }
 
 impl<T> Default for Delta<T>
@@ -57,7 +59,9 @@ where
     }
 
     pub fn weights(&self) -> impl Iterator<Item = NonZeroU32> + '_ {
-        self.weights.iter().map(|&w| NonZeroU32::new(w).unwrap_or(NonZeroU32::new(1).unwrap()))
+        self.weights
+            .iter()
+            .map(|&w| NonZeroU32::new(w).unwrap_or(NonZeroU32::new(1).unwrap()))
     }
 
     pub fn len(&self) -> usize {
@@ -83,7 +87,11 @@ where
             ));
         }
 
-        Ok(TDigest { means, weights, delta })
+        Ok(TDigest {
+            means,
+            weights,
+            delta,
+        })
     }
 
     pub fn from_means_weights(arr: &[T], weights: &[NonZeroU32], delta: Delta<T>) -> Result<Self> {
@@ -99,7 +107,11 @@ where
             ));
         }
 
-        Ok(TDigest { means, weights, delta })
+        Ok(TDigest {
+            means,
+            weights,
+            delta,
+        })
     }
 
     pub fn quantile(&self, x: T) -> Result<T> {
@@ -122,7 +134,11 @@ where
             &other.weights,
             delta.value(),
         )?;
-        Ok(Self { means, weights, delta })
+        Ok(Self {
+            means,
+            weights,
+            delta,
+        })
     }
 }
 
@@ -518,7 +534,6 @@ mod tests {
         assert!(median >= 2.0 && median <= 4.0);
     }
 
-
     #[test]
     fn test_quantile_accuracy_uniform_distribution() {
         let data: Vec<f64> = (1..=10000).map(|i| i as f64).collect();
@@ -534,8 +549,20 @@ mod tests {
         let error_q01 = (q01 - expected_q01).abs() / expected_q01;
         let error_q99 = (q99 - expected_q99).abs() / expected_q99;
 
-        assert!(error_q01 < 0.01, "q01 error too large: {:.4} (got {:.2}, expected {:.2})", error_q01, q01, expected_q01);
-        assert!(error_q99 < 0.01, "q99 error too large: {:.4} (got {:.2}, expected {:.2})", error_q99, q99, expected_q99);
+        assert!(
+            error_q01 < 0.01,
+            "q01 error too large: {:.4} (got {:.2}, expected {:.2})",
+            error_q01,
+            q01,
+            expected_q01
+        );
+        assert!(
+            error_q99 < 0.01,
+            "q99 error too large: {:.4} (got {:.2}, expected {:.2})",
+            error_q99,
+            q99,
+            expected_q99
+        );
     }
 
     #[test]
@@ -545,7 +572,8 @@ mod tests {
         let mut seed1 = 12345u64;
         let mut seed2 = 67890u64;
 
-        for _ in 0..5000 {  // Generate 5000 pairs = 10000 values
+        for _ in 0..5000 {
+            // Generate 5000 pairs = 10000 values
             seed1 = (seed1.wrapping_mul(1103515245).wrapping_add(12345)) & 0x7FFFFFFF;
             seed2 = (seed2.wrapping_mul(16807).wrapping_add(0)) & 0x7FFFFFFF;
 
@@ -572,28 +600,46 @@ mod tests {
         let q75 = digest.quantile(0.75).unwrap();
         let iqr = q75 - q25;
 
-        assert!(median.abs() < 0.1, "Normal distribution median too far from 0: {:.3}", median);
-        assert!(iqr > 1.2 && iqr < 1.5, "IQR not in expected range for normal distribution: {:.3}", iqr);
+        assert!(
+            median.abs() < 0.1,
+            "Normal distribution median too far from 0: {:.3}",
+            median
+        );
+        assert!(
+            iqr > 1.2 && iqr < 1.5,
+            "IQR not in expected range for normal distribution: {:.3}",
+            iqr
+        );
     }
 
     #[test]
     fn test_compression_effectiveness() {
-
         let large_data: Vec<f64> = (1..=100000).map(|i| (i as f64).sin() * 1000.0).collect();
         let delta = Delta::new(100.0).unwrap();
         let digest: TDigest<f64> = TDigest::from_array(&large_data, delta).unwrap();
 
         let num_centroids = digest.means.len();
-        assert!(num_centroids < 500, "Too many centroids: {} (should be < 500 for δ=100)", num_centroids);
-        assert!(num_centroids > 10, "Too few centroids: {} (should be > 10 for varied data)", num_centroids);
+        assert!(
+            num_centroids < 500,
+            "Too many centroids: {} (should be < 500 for δ=100)",
+            num_centroids
+        );
+        assert!(
+            num_centroids > 10,
+            "Too few centroids: {} (should be > 10 for varied data)",
+            num_centroids
+        );
 
         let compression_ratio = large_data.len() as f64 / num_centroids as f64;
-        assert!(compression_ratio > 100.0, "Compression ratio too low: {:.1}", compression_ratio);
+        assert!(
+            compression_ratio > 100.0,
+            "Compression ratio too low: {:.1}",
+            compression_ratio
+        );
     }
 
     #[test]
     fn test_merge_associativity() {
-
         let data_a: Vec<f64> = (1..=1000).map(|i| i as f64).collect();
         let data_b: Vec<f64> = (1001..=2000).map(|i| i as f64).collect();
         let data_c: Vec<f64> = (2001..=3000).map(|i| i as f64).collect();
@@ -614,16 +660,22 @@ mod tests {
             let right_quantile = abc_right.quantile(q).unwrap();
             let relative_error = (left_quantile - right_quantile).abs() / left_quantile;
 
-            assert!(relative_error < 0.05,
+            assert!(
+                relative_error < 0.05,
                 "Merge not associative at q={}: left={:.2}, right={:.2}, error={:.4}",
-                q, left_quantile, right_quantile, relative_error);
+                q,
+                left_quantile,
+                right_quantile,
+                relative_error
+            );
         }
     }
 
     #[test]
     fn test_delta_effect_on_accuracy() {
-
-        let data: Vec<f64> = (1..=10000).map(|i| (i as f64 * 0.1).sin() + i as f64).collect();
+        let data: Vec<f64> = (1..=10000)
+            .map(|i| (i as f64 * 0.1).sin() + i as f64)
+            .collect();
 
         let small_delta = Delta::new(20.0).unwrap();
         let large_delta = Delta::new(200.0).unwrap();
@@ -631,9 +683,12 @@ mod tests {
         let digest_precise: TDigest<f64> = TDigest::from_array(&data, small_delta).unwrap();
         let digest_compressed: TDigest<f64> = TDigest::from_array(&data, large_delta).unwrap();
 
-        assert!(digest_precise.means.len() < digest_compressed.means.len(),
+        assert!(
+            digest_precise.means.len() < digest_compressed.means.len(),
             "Smaller delta should create fewer centroids (stricter compression): {} vs {}",
-            digest_precise.means.len(), digest_compressed.means.len());
+            digest_precise.means.len(),
+            digest_compressed.means.len()
+        );
 
         let true_median = data.len() as f64 / 2.0 + 0.5; // Approximate for our data
         let precise_median = digest_precise.median().unwrap();
@@ -642,9 +697,12 @@ mod tests {
         let precise_error = (precise_median - true_median).abs();
         let compressed_error = (compressed_median - true_median).abs();
 
-        assert!(precise_error <= compressed_error * 2.0,
+        assert!(
+            precise_error <= compressed_error * 2.0,
             "Precise digest should be at least competitive: {:.2} vs {:.2}",
-            precise_error, compressed_error);
+            precise_error,
+            compressed_error
+        );
     }
 
     #[test]
@@ -658,17 +716,22 @@ mod tests {
 
         for &q in &quantiles {
             let current_value = digest.quantile(q).unwrap();
-            assert!(current_value >= prev_value,
+            assert!(
+                current_value >= prev_value,
                 "Quantile function not monotonic: Q({}) = {:.2} < Q(prev) = {:.2}",
-                q, current_value, prev_value);
+                q,
+                current_value,
+                prev_value
+            );
             prev_value = current_value;
         }
     }
 
-
     #[test]
     fn test_performance_regression_large_dataset() {
-        let data: Vec<f64> = (0..100_000).map(|i| (i as f64 * 0.001).sin() + i as f64).collect();
+        let data: Vec<f64> = (0..100_000)
+            .map(|i| (i as f64 * 0.001).sin() + i as f64)
+            .collect();
 
         let start = std::time::Instant::now();
         let digest: TDigest<f64> = TDigest::from_array(&data, Delta::new(100.0).unwrap()).unwrap();
@@ -683,32 +746,64 @@ mod tests {
         let _q75 = digest.quantile(0.75).unwrap();
         let multi_query_time = start.elapsed();
 
-        println!("Performance baseline: construction={:?}, query={:?}, multi_query={:?}",
-                construction_time, query_time, multi_query_time);
+        println!(
+            "Performance baseline: construction={:?}, query={:?}, multi_query={:?}",
+            construction_time, query_time, multi_query_time
+        );
 
-        assert!(construction_time.as_millis() < 1000, "Construction too slow: {:?}", construction_time);
-        assert!(query_time.as_micros() < 1000, "Query too slow: {:?}", query_time);
-        assert!(multi_query_time.as_micros() < 2000, "Multi-query too slow: {:?}", multi_query_time);
+        assert!(
+            construction_time.as_millis() < 1000,
+            "Construction too slow: {:?}",
+            construction_time
+        );
+        assert!(
+            query_time.as_micros() < 1000,
+            "Query too slow: {:?}",
+            query_time
+        );
+        assert!(
+            multi_query_time.as_micros() < 2000,
+            "Multi-query too slow: {:?}",
+            multi_query_time
+        );
     }
 
     #[test]
     fn test_memory_allocation_bounds() {
-        let data: Vec<f64> = (0..50_000).map(|i| (i as f64 * 0.01).sin() * (i % 1000) as f64).collect();
+        let data: Vec<f64> = (0..50_000)
+            .map(|i| (i as f64 * 0.01).sin() * (i % 1000) as f64)
+            .collect();
         let digest: TDigest<f64> = TDigest::from_array(&data, Delta::new(100.0).unwrap()).unwrap();
 
-        println!("Compression: {} input points → {} centroids (ratio: {:.1}x)",
-                data.len(), digest.means.len(),
-                data.len() as f64 / digest.means.len() as f64);
+        println!(
+            "Compression: {} input points → {} centroids (ratio: {:.1}x)",
+            data.len(),
+            digest.means.len(),
+            data.len() as f64 / digest.means.len() as f64
+        );
 
-        assert!(digest.means.len() < 500, "Too many centroids: {}", digest.means.len());
-        assert!(digest.means.len() > 20, "Too few centroids: {}", digest.means.len());
+        assert!(
+            digest.means.len() < 500,
+            "Too many centroids: {}",
+            digest.means.len()
+        );
+        assert!(
+            digest.means.len() > 20,
+            "Too few centroids: {}",
+            digest.means.len()
+        );
 
-        let compact_digest: TDigest<f64> = TDigest::from_array(&data, Delta::new(50.0).unwrap()).unwrap();
-        let loose_digest: TDigest<f64> = TDigest::from_array(&data, Delta::new(200.0).unwrap()).unwrap();
+        let compact_digest: TDigest<f64> =
+            TDigest::from_array(&data, Delta::new(50.0).unwrap()).unwrap();
+        let loose_digest: TDigest<f64> =
+            TDigest::from_array(&data, Delta::new(200.0).unwrap()).unwrap();
 
-        assert!(compact_digest.means.len() < loose_digest.means.len(),
+        assert!(
+            compact_digest.means.len() < loose_digest.means.len(),
             "Delta compression relationship: compact({}) vs loose({})",
-            compact_digest.means.len(), loose_digest.means.len());
+            compact_digest.means.len(),
+            loose_digest.means.len()
+        );
     }
 
     #[test]
@@ -720,15 +815,30 @@ mod tests {
 
         for q in [0.01, 0.1, 0.5, 0.9, 0.99] {
             let quantile = digest.quantile(q).unwrap();
-            assert!(quantile.is_finite(), "Quantile not finite at q={}: {}", q, quantile);
-            assert!(!quantile.is_nan(), "Quantile is NaN at q={}: {}", q, quantile);
+            assert!(
+                quantile.is_finite(),
+                "Quantile not finite at q={}: {}",
+                q,
+                quantile
+            );
+            assert!(
+                !quantile.is_nan(),
+                "Quantile is NaN at q={}: {}",
+                q,
+                quantile
+            );
         }
 
         let extreme_data = vec![-1e308_f64, 0.0, 1e308_f64];
-        let extreme_digest: TDigest<f64> = TDigest::from_array(&extreme_data, Delta::new(100.0).unwrap()).unwrap();
+        let extreme_digest: TDigest<f64> =
+            TDigest::from_array(&extreme_data, Delta::new(100.0).unwrap()).unwrap();
 
         let median = extreme_digest.median().unwrap();
-        assert!(median.is_finite(), "Extreme value median not finite: {}", median);
+        assert!(
+            median.is_finite(),
+            "Extreme value median not finite: {}",
+            median
+        );
     }
 
     #[test]
@@ -737,10 +847,12 @@ mod tests {
 
         for &size in &sizes {
             let data1: Vec<f64> = (0..size).map(|i| i as f64).collect();
-            let data2: Vec<f64> = (size..size*2).map(|i| i as f64).collect();
+            let data2: Vec<f64> = (size..size * 2).map(|i| i as f64).collect();
 
-            let digest1: TDigest<f64> = TDigest::from_array(&data1, Delta::new(100.0).unwrap()).unwrap();
-            let digest2: TDigest<f64> = TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
+            let digest1: TDigest<f64> =
+                TDigest::from_array(&data1, Delta::new(100.0).unwrap()).unwrap();
+            let digest2: TDigest<f64> =
+                TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
 
             let start = std::time::Instant::now();
             let _merged = digest1.merge(&digest2, Delta::new(100.0).unwrap()).unwrap();
@@ -748,7 +860,12 @@ mod tests {
 
             println!("Merge performance for size {}: {:?}", size, merge_time);
 
-            assert!(merge_time.as_millis() < 100, "Merge too slow for size {}: {:?}", size, merge_time);
+            assert!(
+                merge_time.as_millis() < 100,
+                "Merge too slow for size {}: {:?}",
+                size,
+                merge_time
+            );
         }
     }
 
@@ -760,18 +877,25 @@ mod tests {
             NonZeroU32::new(10).unwrap(),
             NonZeroU32::new(5).unwrap(),
         ];
-        let digest: TDigest<f64> = TDigest::from_means_weights(&means, &weights, Delta::new(100.0).unwrap()).unwrap();
+        let digest: TDigest<f64> =
+            TDigest::from_means_weights(&means, &weights, Delta::new(100.0).unwrap()).unwrap();
 
         let q50 = digest.quantile(0.5).unwrap();
         assert!(q50.is_finite(), "Quantile should be finite");
 
         let q50_again = digest.quantile(0.5).unwrap();
-        assert!((q50 - q50_again).abs() < 1e-10, "Quantile should be deterministic");
+        assert!(
+            (q50 - q50_again).abs() < 1e-10,
+            "Quantile should be deterministic"
+        );
 
         let trimmed = digest.trimmed_mean(0.1, 0.9).unwrap();
         assert!(trimmed.is_finite(), "Trimmed mean should be finite");
 
-        println!("Weight consistency test: q50={}, trimmed_mean={}", q50, trimmed);
+        println!(
+            "Weight consistency test: q50={}, trimmed_mean={}",
+            q50, trimmed
+        );
     }
 
     #[test]
@@ -779,16 +903,33 @@ mod tests {
         let data: Vec<f64> = (0..1000).map(|i| i as f64).collect();
         let digest: TDigest<f64> = TDigest::from_array(&data, Delta::new(100.0).unwrap()).unwrap();
 
-        assert!(digest.means.len() < 200, "Too many centroids after clustering: {}", digest.means.len());
-        assert!(digest.means.len() > 5, "Too few centroids: {}", digest.means.len());
+        assert!(
+            digest.means.len() < 200,
+            "Too many centroids after clustering: {}",
+            digest.means.len()
+        );
+        assert!(
+            digest.means.len() > 5,
+            "Too few centroids: {}",
+            digest.means.len()
+        );
 
         let data2: Vec<f64> = (1000..2000).map(|i| i as f64).collect();
-        let digest2: TDigest<f64> = TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
+        let digest2: TDigest<f64> =
+            TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
 
         let merged = digest.merge(&digest2, Delta::new(100.0).unwrap()).unwrap();
 
-        assert!(merged.means.len() < 400, "Merged digest has too many centroids: {}", merged.means.len());
-        assert!(merged.means.len() > 10, "Merged digest has too few centroids: {}", merged.means.len());
+        assert!(
+            merged.means.len() < 400,
+            "Merged digest has too many centroids: {}",
+            merged.means.len()
+        );
+        assert!(
+            merged.means.len() > 10,
+            "Merged digest has too few centroids: {}",
+            merged.means.len()
+        );
     }
 
     #[test]
@@ -797,44 +938,66 @@ mod tests {
 
         for &size in &sizes {
             let data1: Vec<f64> = (0..size).map(|i| (i as f64).sin() * 100.0).collect();
-            let data2: Vec<f64> = (size..size*2).map(|i| (i as f64).cos() * 100.0).collect();
+            let data2: Vec<f64> = (size..size * 2).map(|i| (i as f64).cos() * 100.0).collect();
 
-            let digest1: TDigest<f64> = TDigest::from_array(&data1, Delta::new(100.0).unwrap()).unwrap();
-            let digest2: TDigest<f64> = TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
+            let digest1: TDigest<f64> =
+                TDigest::from_array(&data1, Delta::new(100.0).unwrap()).unwrap();
+            let digest2: TDigest<f64> =
+                TDigest::from_array(&data2, Delta::new(100.0).unwrap()).unwrap();
 
             let merged = digest1.merge(&digest2, Delta::new(100.0).unwrap()).unwrap();
 
             let compression_ratio = (data1.len() + data2.len()) as f64 / merged.means.len() as f64;
-            assert!(compression_ratio > 10.0, "Poor compression ratio for size {}: {:.1}", size, compression_ratio);
-            assert!(merged.means.len() < 500, "Too many centroids for size {}: {}", size, merged.means.len());
+            assert!(
+                compression_ratio > 10.0,
+                "Poor compression ratio for size {}: {:.1}",
+                size,
+                compression_ratio
+            );
+            assert!(
+                merged.means.len() < 500,
+                "Too many centroids for size {}: {}",
+                size,
+                merged.means.len()
+            );
 
-            println!("Size {}: {} centroids, compression ratio: {:.1}x",
-                    size * 2, merged.means.len(), compression_ratio);
+            println!(
+                "Size {}: {} centroids, compression ratio: {:.1}x",
+                size * 2,
+                merged.means.len(),
+                compression_ratio
+            );
         }
     }
 
     #[test]
     fn test_empty_and_small_allocation_edge_cases() {
         let empty_data: Vec<f64> = vec![];
-        let empty_digest: TDigest<f64> = TDigest::from_array(&empty_data, Delta::new(100.0).unwrap()).unwrap();
+        let empty_digest: TDigest<f64> =
+            TDigest::from_array(&empty_data, Delta::new(100.0).unwrap()).unwrap();
 
         assert!(empty_digest.is_empty());
         assert_eq!(empty_digest.len(), 0);
 
         let single_data = vec![42.0_f64];
-        let single_digest: TDigest<f64> = TDigest::from_array(&single_data, Delta::new(100.0).unwrap()).unwrap();
+        let single_digest: TDigest<f64> =
+            TDigest::from_array(&single_data, Delta::new(100.0).unwrap()).unwrap();
 
         assert_eq!(single_digest.len(), 1);
         assert_eq!(single_digest.means[0], 42.0);
 
-        let merged = empty_digest.merge(&single_digest, Delta::new(100.0).unwrap()).unwrap();
+        let merged = empty_digest
+            .merge(&single_digest, Delta::new(100.0).unwrap())
+            .unwrap();
         assert_eq!(merged.len(), 1);
         assert_eq!(merged.means[0], 42.0);
 
         let small_data1 = vec![1.0_f64, 2.0];
         let small_data2 = vec![3.0_f64, 4.0];
-        let digest1: TDigest<f64> = TDigest::from_array(&small_data1, Delta::new(100.0).unwrap()).unwrap();
-        let digest2: TDigest<f64> = TDigest::from_array(&small_data2, Delta::new(100.0).unwrap()).unwrap();
+        let digest1: TDigest<f64> =
+            TDigest::from_array(&small_data1, Delta::new(100.0).unwrap()).unwrap();
+        let digest2: TDigest<f64> =
+            TDigest::from_array(&small_data2, Delta::new(100.0).unwrap()).unwrap();
 
         let small_merged = digest1.merge(&digest2, Delta::new(100.0).unwrap()).unwrap();
         assert!(small_merged.len() <= 4); // Should not exceed input size for small data
@@ -850,9 +1013,17 @@ mod tests {
 
         match small_result {
             Ok(digest) => {
-                assert!(digest.len() <= 50, "Digest exceeded MAX_CLUSTERS: {}", digest.len());
+                assert!(
+                    digest.len() <= 50,
+                    "Digest exceeded MAX_CLUSTERS: {}",
+                    digest.len()
+                );
                 let median = digest.median().unwrap();
-                assert!(median >= 4000.0 && median <= 6000.0, "Median out of expected range: {}", median);
+                assert!(
+                    median >= 4000.0 && median <= 6000.0,
+                    "Median out of expected range: {}",
+                    median
+                );
             }
             Err(e) => {
                 assert!(e.to_string().contains("exceed maximum"));
@@ -860,7 +1031,8 @@ mod tests {
         }
 
         type LargeDigest = TDigest<f64, 500>;
-        let large_digest = LargeDigest::from_array(&large_data, Delta::new(100.0).unwrap()).unwrap();
+        let large_digest =
+            LargeDigest::from_array(&large_data, Delta::new(100.0).unwrap()).unwrap();
         assert!(large_digest.len() <= 500);
         assert!(large_digest.len() > 10); // Should use reasonable number of clusters
     }
