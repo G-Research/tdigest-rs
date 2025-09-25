@@ -4,7 +4,7 @@ use num::Float;
 
 use crate::{
     scale::log_q_limit,
-    simd::sum_weights_optimized,
+    simd::{sum_weights_optimized, merge_sorted_optimized},
     traits::FloatConst,
 };
 
@@ -45,42 +45,13 @@ pub fn merge_clusters<T>(
     delta: T,
 ) -> Result<(Vec<T>, Vec<u32>, Vec<bool>)>
 where
-    T: Float + FloatConst,
+    T: Float + FloatConst + Copy,
 {
-    // Pre-allocate with known capacity to avoid reallocations
     let total_capacity = means1.len() + means2.len();
     let mut means = Vec::with_capacity(total_capacity);
     let mut weights = Vec::with_capacity(total_capacity);
 
-    // Manual sorted merge for better performance than kmerge().unzip()
-    let mut i1 = 0;
-    let mut i2 = 0;
-
-    while i1 < means1.len() && i2 < means2.len() {
-        if means1[i1] <= means2[i2] {
-            means.push(means1[i1]);
-            weights.push(weights1[i1]);
-            i1 += 1;
-        } else {
-            means.push(means2[i2]);
-            weights.push(weights2[i2]);
-            i2 += 1;
-        }
-    }
-
-    // Add remaining elements from the first slice
-    while i1 < means1.len() {
-        means.push(means1[i1]);
-        weights.push(weights1[i1]);
-        i1 += 1;
-    }
-
-    // Add remaining elements from the second slice
-    while i2 < means2.len() {
-        means.push(means2[i2]);
-        weights.push(weights2[i2]);
-        i2 += 1;
-    }
+    merge_sorted_optimized(means1, weights1, means2, weights2, &mut means, &mut weights);
 
     let mask = vec![true; means.len()];
     compute(&means, &weights, &mask, delta)
@@ -144,7 +115,6 @@ where
                 continue;
             }
 
-            // Use u32 arithmetic where possible to avoid repeated conversions
             let candidate_weight_u32 = cumulative_weight_u32 + sigma_weight + wght;
             let q = T::from(candidate_weight_u32).unwrap() / total_weight;
 
@@ -176,7 +146,6 @@ where
         }
     }
 
-    // Handle positive inf case
     if inf_exists {
         new_means.push(T::INFINITY);
         new_weights.push(inf_weight.try_into()
@@ -194,7 +163,6 @@ where
     let total_weight = T::from(sum_weights_optimized(weights) as u32).unwrap();
 
     if total_weight == T::ZERO {
-        // We should return NaN here?
         return Ok(total_weight);
     }
     if x == T::ZERO {
@@ -254,7 +222,6 @@ where
         }
         curr_count = next_count;
     }
-    // TODO: return NaN here
     Ok(trimmed_sum / trimmed_count)
 }
 
@@ -267,9 +234,8 @@ mod tests {
         let data = vec![3.0_f64, 1.0, 4.0, 1.5, 2.0];
         let indices = argsort(&data).unwrap();
 
-        // Should return indices that sort the array
         let sorted_values: Vec<f64> = indices.iter().map(|&i| data[i]).collect();
-        let expected = vec![1.0, 1.5, 2.0, 3.0, 4.0];
+        let expected = [1.0, 1.5, 2.0, 3.0, 4.0];
 
         for (actual, expected) in sorted_values.iter().zip(expected.iter()) {
             assert!((actual - expected).abs() < 1e-10);
@@ -295,14 +261,13 @@ mod tests {
         let data = vec![3.0_f64, f64::NAN, 1.0, 2.0];
         let indices = argsort(&data).unwrap();
 
-        // Should handle NaN values (they typically sort to end)
         assert_eq!(indices.len(), 4);
     }
 
     #[test]
     fn test_sort_by_indices() {
         let data = vec![10, 20, 30, 40, 50];
-        let indices = vec![4, 0, 2, 1, 3]; // Reorder indices
+        let indices = vec![4, 0, 2, 1, 3];
         let sorted = sort_by_indices(&data, &indices).unwrap();
 
         assert_eq!(sorted, vec![50, 10, 30, 20, 40]);
@@ -310,15 +275,13 @@ mod tests {
 
     #[test]
     fn test_overflow_protection_large_weights() {
-        // Test the overflow protection we added
         let means = vec![f64::NEG_INFINITY; 10];
-        let weights = vec![u32::MAX; 10]; // Very large weights that would overflow
+        let weights = vec![u32::MAX; 10];
         let mask = vec![true; 10];
         let delta = 100.0;
 
         let result = compute(&means, &weights, &mask, delta);
 
-        // Should either succeed with proper handling or return overflow error
         match result {
             Ok((new_means, _new_weights, _)) => {
                 assert!(!new_means.is_empty());
@@ -338,7 +301,7 @@ mod tests {
     #[test]
     fn test_overflow_protection_positive_infinity() {
         let means = vec![f64::INFINITY; 5];
-        let weights = vec![u32::MAX; 5]; // Very large weights
+        let weights = vec![u32::MAX; 5];
         let mask = vec![true; 5];
         let delta = 100.0;
 
@@ -359,13 +322,10 @@ mod tests {
         let means: Vec<f64> = vec![];
         let weights: Vec<u32> = vec![];
 
-        // Should handle empty input gracefully
         let result = compute_quantile(&means, &weights, 0.5);
 
-        // With empty data, total weight is 0, should return 0 (as per current implementation)
-        match result {
-            Ok(q) => assert_eq!(q, 0.0),
-            Err(_) => {} // Empty case might error, which is also acceptable
+        if let Ok(q) = result {
+            assert_eq!(q, 0.0);
         }
     }
 
@@ -390,18 +350,15 @@ mod tests {
 
         let trimmed = compute_trimmed_mean(&means, &weights, 0.2, 0.8).unwrap();
 
-        // Should trim 20% from each end
-        assert!(trimmed >= 2.0 && trimmed <= 4.0);
+        assert!((2.0..=4.0).contains(&trimmed));
     }
 
     #[test]
     fn test_compute_trimmed_mean_no_trim() {
         let means = vec![1.0_f64, 2.0, 3.0, 4.0, 5.0];
-        let weights = vec![2u32, 1, 1, 1, 2]; // Different weights
+        let weights = vec![2u32, 1, 1, 1, 2];
 
         let mean = compute_trimmed_mean(&means, &weights, 0.0, 1.0).unwrap();
-
-        // Should compute weighted mean of all values
         let expected = (1.0 * 2.0 + 2.0 * 1.0 + 3.0 * 1.0 + 4.0 * 1.0 + 5.0 * 2.0) / 7.0;
         assert!((mean - expected).abs() < 1e-10);
     }

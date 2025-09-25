@@ -1,5 +1,4 @@
 use num::Float;
-use crate::traits::FloatConst;
 
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
@@ -427,26 +426,6 @@ pub mod x86 {
 }
 
 // Runtime CPU feature detection
-pub fn detect_simd_support() -> SIMDSupport {
-    SIMDSupport {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        avx2: is_x86_feature_detected!("avx2"),
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        sse2: is_x86_feature_detected!("sse2"),
-        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-        avx2: false,
-        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-        sse2: false,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SIMDSupport {
-    pub avx2: bool,
-    pub sse2: bool,
-}
-
-/// High-level SIMD-optimized weight summation with runtime feature detection
 pub fn sum_weights_optimized(weights: &[u32]) -> u64 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
@@ -458,27 +437,9 @@ pub fn sum_weights_optimized(weights: &[u32]) -> u64 {
         }
     }
 
-    // Fallback to scalar implementation
     weights.iter().map(|&w| w as u64).sum()
 }
 
-/// High-level SIMD-optimized quantile position search with runtime feature detection
-pub fn find_quantile_position_optimized<T>(weights: &[u32], target_position: T) -> usize
-where
-    T: Float + FloatConst + PartialOrd,
-{
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    {
-        if is_x86_feature_detected!("avx2") {
-            return x86::find_quantile_position_simd(weights, target_position);
-        }
-    }
-
-    // Fallback to scalar implementation
-    find_quantile_position_scalar_fallback(weights, target_position)
-}
-
-/// High-level SIMD-optimized merge with runtime feature detection
 pub fn merge_sorted_optimized<T>(
     left_means: &[T],
     left_weights: &[u32],
@@ -499,35 +460,12 @@ pub fn merge_sorted_optimized<T>(
         }
     }
 
-    // Fallback to scalar implementation
     merge_sorted_scalar_fallback(
         left_means, left_weights, right_means, right_weights,
         output_means, output_weights
     );
 }
 
-/// Scalar fallback implementation for quantile position search
-fn find_quantile_position_scalar_fallback<T>(weights: &[u32], target_position: T) -> usize
-where
-    T: Float + FloatConst + PartialOrd,
-{
-    let mut cumulative_pos = T::ZERO;
-
-    for (i, &weight) in weights.iter().enumerate() {
-        let w = T::from(weight).unwrap();
-        cumulative_pos = cumulative_pos + w / T::TWO;
-
-        if target_position <= cumulative_pos {
-            return i;
-        }
-
-        cumulative_pos = cumulative_pos + w / T::TWO;
-    }
-
-    weights.len().saturating_sub(1)
-}
-
-/// Scalar fallback implementation for merge operations
 fn merge_sorted_scalar_fallback<T>(
     left_means: &[T],
     left_weights: &[u32],
@@ -553,14 +491,12 @@ fn merge_sorted_scalar_fallback<T>(
         }
     }
 
-    // Add remaining elements from left
     while i < left_means.len() {
         output_means.push(left_means[i]);
         output_weights.push(left_weights[i]);
         i += 1;
     }
 
-    // Add remaining elements from right
     while j < right_means.len() {
         output_means.push(right_means[j]);
         output_weights.push(right_weights[j]);
@@ -609,79 +545,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_binary_search_simd() {
-        let sorted_data: Vec<f64> = (0..100).map(|i| i as f64 * 0.1).collect();
 
-        // Test various search targets
-        for i in 0..100 {
-            let target = i as f64 * 0.1;
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            {
-                let simd_result = x86::binary_search_simd(&sorted_data, target);
-                let scalar_result = sorted_data.binary_search_by(|x| x.partial_cmp(&target).unwrap());
-                assert_eq!(simd_result, scalar_result, "Mismatch for target {}", target);
-            }
-        }
-    }
 
-    #[test]
-    fn test_cpu_feature_detection() {
-        let support = detect_simd_support();
-        println!("SIMD support: {:?}", support);
-        // Just ensure it doesn't panic
-        assert!(support.sse2 || !support.avx2); // AVX2 implies SSE2
-    }
-
-    #[test]
-    fn test_quantile_position_search() {
-        let weights = vec![10u32, 20, 30, 40, 50]; // Total weight: 150
-
-        // Test various target positions
-        let test_cases = [
-            (5.0, 0),   // First centroid
-            (15.0, 1),  // Second centroid
-            (35.0, 2),  // Third centroid
-            (75.0, 3),  // Fourth centroid
-            (125.0, 4), // Fifth centroid
-            (200.0, 4), // Beyond end
-        ];
-
-        for (target_pos, expected_idx) in test_cases {
-            let simd_result = find_quantile_position_optimized(&weights, target_pos);
-            let scalar_result = find_quantile_position_scalar_fallback(&weights, target_pos);
-
-            assert_eq!(simd_result, scalar_result,
-                "SIMD and scalar mismatch for target {}: SIMD={}, scalar={}",
-                target_pos, simd_result, scalar_result);
-
-            assert_eq!(simd_result, expected_idx,
-                "Wrong result for target {}: got {}, expected {}",
-                target_pos, simd_result, expected_idx);
-        }
-    }
-
-    #[test]
-    fn test_quantile_position_search_large() {
-        // Test with larger arrays to trigger SIMD path
-        let weights: Vec<u32> = (1..=100).collect(); // Weights 1,2,3,...,100
-        let total_weight: u64 = weights.iter().map(|&w| w as u64).sum();
-
-        // Test searching at various percentiles
-        for percentile in [10, 25, 50, 75, 90] {
-            let target_pos = (total_weight * percentile / 100) as f64;
-
-            let simd_result = find_quantile_position_optimized(&weights, target_pos);
-            let scalar_result = find_quantile_position_scalar_fallback(&weights, target_pos);
-
-            assert_eq!(simd_result, scalar_result,
-                "SIMD/scalar mismatch at {}th percentile: SIMD={}, scalar={}",
-                percentile, simd_result, scalar_result);
-
-            assert!(simd_result < weights.len(),
-                "Index out of bounds: {} >= {}", simd_result, weights.len());
-        }
-    }
 
     #[test]
     fn test_merge_sorted_operations() {

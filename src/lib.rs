@@ -32,7 +32,13 @@ where
         self.0
     }
 
-    pub fn default() -> Self {
+}
+
+impl<T> Default for Delta<T>
+where
+    T: Float + FloatConst + PartialOrd + std::fmt::Debug,
+{
+    fn default() -> Self {
         Delta(T::from(300).unwrap())
     }
 }
