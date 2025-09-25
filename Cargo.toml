@@ -9,6 +9,6 @@ members = ["bindings/python"]
 
 [dependencies]
 anyhow = "1.0.97"
-itertools = "0.13.0"
+itertools = "0.14.0"
 num = "0.4.3"
 num-traits = "0.2.19"
