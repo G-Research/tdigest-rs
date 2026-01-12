@@ -14,5 +14,5 @@ pyo3 = { version = "0.20.3", features = [
     "anyhow",
 ] }
 numpy = "0.20.0"
-ndarray = "0.16.1"
+ndarray = "0.17.2"
 tdigest_core = { version = "0.2.0", path = "../../" }
