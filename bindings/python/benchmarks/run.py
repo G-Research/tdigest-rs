@@ -28,6 +28,7 @@ print(f"Total running time tdigest_rs: {time.time() - t0}")
 
 # --- Individual operation benchmarks ---
 
+
 def bench_quantile():
     """Benchmark quantile queries at various percentiles."""
     data = np.random.randn(100_000)
@@ -43,7 +44,7 @@ def bench_quantile():
             digest.quantile(p)
         elapsed = time.perf_counter() - t0
         us_per_query = (elapsed / n_queries) * 1e6
-        print(f"  p{int(p*100):02d}: {us_per_query:.3f} us/query")
+        print(f"  p{int(p * 100):02d}: {us_per_query:.3f} us/query")
 
 
 def bench_median():

@@ -1,6 +1,4 @@
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand_distr::{Distribution, StandardNormal};
@@ -79,7 +77,11 @@ fn bench_merge(c: &mut Criterion) {
     let d_large = TDigest::from_array(&generate_data(100_000, 42), DELTA).unwrap();
     let d_small = TDigest::from_array(&generate_data(100, 99), DELTA).unwrap();
     group.bench_function("asymmetric_100k_100", |b| {
-        b.iter(|| d_large.merge(black_box(&d_small), black_box(DELTA)).unwrap());
+        b.iter(|| {
+            d_large
+                .merge(black_box(&d_small), black_box(DELTA))
+                .unwrap()
+        });
     });
 
     group.finish();
@@ -92,18 +94,22 @@ fn bench_trimmed_mean(c: &mut Criterion) {
         let data = generate_data(size, 42);
         let digest = TDigest::from_array(&data, DELTA).unwrap();
 
-        group.bench_with_input(
-            BenchmarkId::new("trim_5_95", size),
-            &digest,
-            |b, digest| {
-                b.iter(|| digest.trimmed_mean(black_box(0.05), black_box(0.95)).unwrap());
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("trim_5_95", size), &digest, |b, digest| {
+            b.iter(|| {
+                digest
+                    .trimmed_mean(black_box(0.05), black_box(0.95))
+                    .unwrap()
+            });
+        });
         group.bench_with_input(
             BenchmarkId::new("trim_25_75", size),
             &digest,
             |b, digest| {
-                b.iter(|| digest.trimmed_mean(black_box(0.25), black_box(0.75)).unwrap());
+                b.iter(|| {
+                    digest
+                        .trimmed_mean(black_box(0.25), black_box(0.75))
+                        .unwrap()
+                });
             },
         );
     }

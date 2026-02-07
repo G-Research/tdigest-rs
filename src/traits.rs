@@ -20,8 +20,8 @@ impl FloatConst for f32 {
     const TWENTYFOUR: Self = 24_f32;
 
     const E: Self = std::f32::consts::E;
-    const INFINITY: Self = std::f32::INFINITY;
-    const NEG_INFINITY: Self = std::f32::NEG_INFINITY;
+    const INFINITY: Self = f32::INFINITY;
+    const NEG_INFINITY: Self = f32::NEG_INFINITY;
 }
 
 impl FloatConst for f64 {
@@ -32,8 +32,8 @@ impl FloatConst for f64 {
     const TWENTYFOUR: Self = 24_f64;
 
     const E: Self = std::f64::consts::E;
-    const INFINITY: Self = std::f64::INFINITY;
-    const NEG_INFINITY: Self = std::f64::NEG_INFINITY;
+    const INFINITY: Self = f64::INFINITY;
+    const NEG_INFINITY: Self = f64::NEG_INFINITY;
 }
 
 pub trait TotalOrd<T> {

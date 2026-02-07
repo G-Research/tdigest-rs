@@ -7,11 +7,7 @@ use crate::{
     traits::{FloatConst, TotalOrd},
 };
 
-pub fn create_clusters<T>(
-    means: &[T],
-    weights: &[u32],
-    delta: T,
-) -> Result<(Vec<T>, Vec<u32>)>
+pub fn create_clusters<T>(means: &[T], weights: &[u32], delta: T) -> Result<(Vec<T>, Vec<u32>)>
 where
     T: Float + FloatConst + TotalOrd<T>,
 {
@@ -39,11 +35,7 @@ where
     compute(&means, &weights, delta)
 }
 
-pub fn compute<T>(
-    means: &[T],
-    weights: &[u32],
-    delta: T,
-) -> Result<(Vec<T>, Vec<u32>)>
+pub fn compute<T>(means: &[T], weights: &[u32], delta: T) -> Result<(Vec<T>, Vec<u32>)>
 where
     T: Float + FloatConst,
 {
