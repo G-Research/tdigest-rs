@@ -78,6 +78,7 @@ def bench_trimmed_mean():
     print(f"  trim(0.05, 0.95): {us_per_query:.3f} us/query")
 
 
-bench_quantile()
-bench_median()
-bench_trimmed_mean()
+if __name__ == "__main__":
+    bench_quantile()
+    bench_median()
+    bench_trimmed_mean()
