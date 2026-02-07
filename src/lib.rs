@@ -20,13 +20,12 @@ where
 {
     pub fn from_array(arr: &[T], delta: T) -> Result<Self> {
         let weights: Vec<u32> = vec![1; arr.len()];
-        let (means, weights, _) = create_clusters(arr, &weights, delta)?;
+        let (means, weights) = create_clusters(arr, &weights, delta)?;
         Ok(TDigest { means, weights })
     }
 
     pub fn from_means_weights(arr: &[T], weights: &[u32], delta: T) -> Result<Self> {
-        let mask = vec![true; arr.len()];
-        let (means, weights, _) = compute(arr, weights, &mask, delta)?;
+        let (means, weights) = compute(arr, weights, delta)?;
         Ok(TDigest { means, weights })
     }
 
@@ -43,7 +42,7 @@ where
     }
 
     pub fn merge(&self, other: &Self, delta: T) -> Result<Self> {
-        let (means, weights, _) = merge_clusters(
+        let (means, weights) = merge_clusters(
             &self.means,
             &self.weights,
             &other.means,
@@ -51,6 +50,10 @@ where
             delta,
         )?;
         Ok(Self { means, weights })
+    }
+
+    pub fn quantiles(&self, qs: &[T]) -> Result<Vec<T>> {
+        qs.iter().map(|&q| self.quantile(q)).collect()
     }
 
     pub fn n_zero_weights(&self) -> Result<usize> {

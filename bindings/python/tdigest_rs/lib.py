@@ -39,6 +39,10 @@ class TDigest:
     def quantile(self, q: float) -> float:
         return self._digest.quantile(q)
 
+    def quantiles(self, qs: npt.NDArray) -> npt.NDArray:
+        qs = np.asarray(qs, dtype=self.means.dtype)
+        return self._digest.quantiles(qs)
+
     def median(self) -> float:
         return self._digest.median()
 
@@ -97,5 +101,5 @@ class TDigest:
     def update(
         self, buffer: npt.NDArray[np.float32], delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
     ) -> "TDigest":
-        buffer_digest = TDigest.from_array(buffer, delta)
-        return self.merge(buffer_digest, merge_delta)
+        digest = self._digest.update(buffer, delta, merge_delta)
+        return self.__class__(digest)

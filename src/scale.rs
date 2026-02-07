@@ -1,32 +1,45 @@
 use crate::traits::FloatConst;
-use anyhow::Result;
 use num::Float;
 
-pub fn log_q_limit<T>(q0: T, delta: T, n: usize) -> Result<T>
-where
-    T: Float + FloatConst,
-{
-    inverse_log_scale(log_scale(q0, delta, n)? + T::ONE, delta, n)
+pub struct ScaleParams<T> {
+    factor: T,
+    inv_factor: T,
 }
 
-pub fn inverse_log_scale<T>(k: T, delta: T, n: usize) -> Result<T>
-where
-    T: Float + FloatConst,
-{
-    let factor = (T::from(n).unwrap() / delta)
-        .log(T::E)
-        .mul_add(T::FOUR, T::TWENTYFOUR)
-        / delta;
-    Ok((T::ONE + (-k * factor).exp()).recip())
-}
-
-pub fn log_scale<T>(q: T, delta: T, n: usize) -> Result<T>
-where
-    T: Float + FloatConst,
-{
-    let factor = delta
-        / (T::from(n).unwrap() / delta)
+impl<T: Float + FloatConst> ScaleParams<T> {
+    #[inline]
+    pub fn new(delta: T, n: usize) -> Self {
+        let f = (T::from(n).unwrap() / delta)
             .log(T::E)
-            .mul_add(T::FOUR, T::TWENTYFOUR);
-    Ok(factor * (q / (T::ONE - q)).log(T::E))
+            .mul_add(T::FOUR, T::TWENTYFOUR)
+            / delta;
+        ScaleParams {
+            factor: T::ONE / f,
+            inv_factor: f,
+        }
+    }
+}
+
+#[inline]
+pub fn log_q_limit<T>(q0: T, params: &ScaleParams<T>) -> T
+where
+    T: Float + FloatConst,
+{
+    inverse_log_scale(log_scale(q0, params) + T::ONE, params)
+}
+
+#[inline]
+fn inverse_log_scale<T>(k: T, params: &ScaleParams<T>) -> T
+where
+    T: Float + FloatConst,
+{
+    (T::ONE + (-k * params.inv_factor).exp()).recip()
+}
+
+#[inline]
+fn log_scale<T>(q: T, params: &ScaleParams<T>) -> T
+where
+    T: Float + FloatConst,
+{
+    params.factor * (q / (T::ONE - q)).log(T::E)
 }

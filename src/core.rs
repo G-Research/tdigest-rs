@@ -3,35 +3,22 @@ use itertools::{izip, Itertools};
 use num::Float;
 
 use crate::{
-    scale::log_q_limit,
+    scale::{log_q_limit, ScaleParams},
     traits::{FloatConst, TotalOrd},
 };
-
-pub fn argsort<T>(arr: &[T]) -> Result<Vec<usize>>
-where
-    T: Float + TotalOrd<T>,
-{
-    let mut indices = (0..arr.len()).collect::<Vec<usize>>();
-    indices.sort_by(|&i, &j| arr[i].total_cmp(&arr[j]));
-    Ok(indices)
-}
-pub fn sort_by_indices<T: Copy>(arr: &[T], indices: &[usize]) -> Result<Vec<T>> {
-    Ok(indices.iter().map(|&i| arr[i]).collect())
-}
 
 pub fn create_clusters<T>(
     means: &[T],
     weights: &[u32],
     delta: T,
-) -> Result<(Vec<T>, Vec<u32>, Vec<bool>)>
+) -> Result<(Vec<T>, Vec<u32>)>
 where
     T: Float + FloatConst + TotalOrd<T>,
 {
-    let indices = argsort(means)?;
-    let means = sort_by_indices(means, &indices)?;
-    let weights = sort_by_indices(weights, &indices)?;
-    let mask = vec![true; means.len()];
-    compute(&means, &weights, &mask, delta)
+    let mut pairs: Vec<(T, u32)> = means.iter().copied().zip(weights.iter().copied()).collect();
+    pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (sorted_means, sorted_weights): (Vec<T>, Vec<u32>) = pairs.into_iter().unzip();
+    compute(&sorted_means, &sorted_weights, delta)
 }
 
 pub fn merge_clusters<T>(
@@ -40,7 +27,7 @@ pub fn merge_clusters<T>(
     means2: &Vec<T>,
     weights2: &Vec<u32>,
     delta: T,
-) -> Result<(Vec<T>, Vec<u32>, Vec<bool>)>
+) -> Result<(Vec<T>, Vec<u32>)>
 where
     T: Float + FloatConst,
 {
@@ -49,23 +36,20 @@ where
             .into_iter()
             .kmerge()
             .unzip();
-    let mask = vec![true; means.len()];
-    compute(&means, &weights, &mask, delta)
+    compute(&means, &weights, delta)
 }
 
 pub fn compute<T>(
     means: &[T],
     weights: &[u32],
-    mask: &[bool],
     delta: T,
-) -> Result<(Vec<T>, Vec<u32>, Vec<bool>)>
+) -> Result<(Vec<T>, Vec<u32>)>
 where
     T: Float + FloatConst,
 {
     let mut n = means.len();
     let mut new_means = Vec::with_capacity(n);
     let mut new_weights = Vec::with_capacity(n);
-    let mut new_mask = Vec::with_capacity(n);
 
     let mut start = 0;
     let mut end = n;
@@ -79,7 +63,6 @@ where
     if start > 0 {
         new_means.push(T::NEG_INFINITY);
         new_weights.push(weights[..start].iter().sum::<u32>());
-        new_mask.push(true);
     }
     let inf_exists = end < n;
     let mut inf_weight = 0;
@@ -88,61 +71,53 @@ where
     }
     let mean_slice = &means[start..end];
     let weight_slice = &weights[start..end];
-    let mask_slice = &mask[start..end];
     n = mean_slice.len();
 
     if n > 0 {
-        let total_weight = T::from(weight_slice.iter().sum::<u32>()).unwrap();
-        let mut cumulative_weight = 0;
+        let total_weight: T = T::from(weight_slice.iter().sum::<u32>()).unwrap();
+        let params = ScaleParams::new(delta, n);
+
+        let mut cumulative_weight_f = T::ZERO;
         let mut sigma_mean = mean_slice[0];
         let mut sigma_weight = weight_slice[0];
-        let mut sigma_mask = mask_slice[0];
-        let mut q_limit = log_q_limit(T::ZERO, delta, n)?;
+        let mut sigma_weight_f = T::from(sigma_weight).unwrap();
+        let mut q_limit = log_q_limit(T::ZERO, &params);
 
-        for (&mu, &wght, &msk) in izip!(
-            mean_slice.iter().skip(1),
-            weight_slice.iter().skip(1),
-            mask_slice.iter().skip(1)
-        ) {
+        for (&mu, &wght) in mean_slice.iter().skip(1).zip(weight_slice.iter().skip(1)) {
             if mu.is_nan() {
                 continue;
             }
 
-            let q = T::from(cumulative_weight + sigma_weight + wght).unwrap() / total_weight;
+            let wght_f = T::from(wght).unwrap();
+            let q = (cumulative_weight_f + sigma_weight_f + wght_f) / total_weight;
             if q <= q_limit {
-                sigma_mean = ((sigma_mean * T::from(sigma_weight).unwrap())
-                    + mu * T::from(wght).unwrap())
-                    / T::from(sigma_weight + wght).unwrap();
+                let new_weight_f = sigma_weight_f + wght_f;
+                sigma_mean = (sigma_mean * sigma_weight_f + mu * wght_f) / new_weight_f;
                 sigma_weight += wght;
-                sigma_mask = false;
+                sigma_weight_f = new_weight_f;
             } else {
                 new_means.push(sigma_mean);
                 new_weights.push(sigma_weight);
-                new_mask.push(sigma_mask);
 
-                cumulative_weight += sigma_weight;
-                q_limit =
-                    log_q_limit(T::from(cumulative_weight).unwrap() / total_weight, delta, n)?;
+                cumulative_weight_f = cumulative_weight_f + sigma_weight_f;
+                q_limit = log_q_limit(cumulative_weight_f / total_weight, &params);
                 sigma_mean = mu;
                 sigma_weight = wght;
-                sigma_mask = msk;
+                sigma_weight_f = wght_f;
             }
         }
         if !sigma_mean.is_nan() {
             new_means.push(sigma_mean);
             new_weights.push(sigma_weight);
-            new_mask.push(sigma_mask);
         }
     }
 
-    // Handle positive inf case
     if inf_exists {
         new_means.push(T::INFINITY);
         new_weights.push(inf_weight);
-        new_mask.push(true);
     }
 
-    Ok((new_means, new_weights, new_mask))
+    Ok((new_means, new_weights))
 }
 
 pub fn compute_quantile<T>(means: &[T], weights: &[u32], x: T) -> Result<T>
@@ -152,7 +127,6 @@ where
     let total_weight = T::from(weights.iter().sum::<u32>()).unwrap();
 
     if total_weight == T::ZERO {
-        // We should return NaN here?
         return Ok(total_weight);
     }
     if x == T::ZERO {
@@ -213,6 +187,5 @@ where
         }
         curr_count = next_count;
     }
-    // TODO: return NaN here
     Ok(trimmed_sum / trimmed_count)
 }

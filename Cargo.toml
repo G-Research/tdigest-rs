@@ -1,6 +1,6 @@
 [package]
 name = "tdigest_core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 [workspace]
@@ -12,3 +12,16 @@ anyhow = "1.0.93"
 itertools = "0.14.0"
 num = "0.4.3"
 num-traits = "0.2.19"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.8"
+rand_distr = "0.4"
+
+[[bench]]
+name = "tdigest_bench"
+harness = false
+
+[profile.release]
+lto = true
+codegen-units = 1
