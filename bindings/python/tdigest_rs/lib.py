@@ -97,5 +97,6 @@ class TDigest:
     def update(
         self, buffer: npt.NDArray[np.float32], delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
     ) -> "TDigest":
-        buffer_digest = TDigest.from_array(buffer, delta)
-        return self.merge(buffer_digest, merge_delta)
+        # Use the optimized Rust update() method that does both operations in one FFI call
+        digest = self._digest.update(buffer, delta=delta, merge_delta=merge_delta)
+        return self.__class__(digest)

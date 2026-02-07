@@ -1,0 +1,67 @@
+
+======================================================================
+T-Digest Production Scenario Benchmark
+======================================================================
+
+[1/2] Running sequential benchmark (warmup)...
+
+======================================================================
+Sequential Benchmark: 100 digests × 32,000 elements
+======================================================================
+  Progress: 100/100 digests | Throughput: 53,854,039 elements/sec
+
+Results:
+  Total time: 0.06 seconds
+  Total elements: 3,200,000
+  Average throughput: 53,843,237 elements/second
+  Time per digest: 0.59 ms
+
+[2/2] Running parallel production scenario...
+
+======================================================================
+Parallel Benchmark: 20,000 digests × 32,000 elements
+Workers: 8
+======================================================================
+  Progress: 1,000/20,000 digests | Throughput: 170,052,565 elements/sec
+  Progress: 2,000/20,000 digests | Throughput: 213,450,585 elements/sec
+  Progress: 3,000/20,000 digests | Throughput: 233,894,127 elements/sec
+  Progress: 4,000/20,000 digests | Throughput: 243,297,915 elements/sec
+  Progress: 5,000/20,000 digests | Throughput: 249,869,177 elements/sec
+  Progress: 6,000/20,000 digests | Throughput: 254,300,582 elements/sec
+  Progress: 7,000/20,000 digests | Throughput: 257,874,040 elements/sec
+  Progress: 8,000/20,000 digests | Throughput: 260,600,375 elements/sec
+  Progress: 9,000/20,000 digests | Throughput: 262,747,555 elements/sec
+  Progress: 10,000/20,000 digests | Throughput: 264,527,069 elements/sec
+  Progress: 11,000/20,000 digests | Throughput: 265,636,134 elements/sec
+  Progress: 12,000/20,000 digests | Throughput: 266,424,131 elements/sec
+  Progress: 13,000/20,000 digests | Throughput: 267,162,611 elements/sec
+  Progress: 14,000/20,000 digests | Throughput: 267,844,858 elements/sec
+  Progress: 15,000/20,000 digests | Throughput: 267,584,608 elements/sec
+  Progress: 16,000/20,000 digests | Throughput: 265,971,957 elements/sec
+  Progress: 17,000/20,000 digests | Throughput: 265,362,496 elements/sec
+  Progress: 18,000/20,000 digests | Throughput: 265,879,965 elements/sec
+  Progress: 19,000/20,000 digests | Throughput: 266,352,968 elements/sec
+  Progress: 20,000/20,000 digests | Throughput: 267,123,213 elements/sec
+
+Results:
+  Total time: 2.40 seconds
+  Total elements: 640,000,000
+  Average throughput: 267,098,362 elements/second
+  Time per digest: 0.12 ms
+
+======================================================================
+SUMMARY
+======================================================================
+
+Sequential (100 digests):
+  Throughput: 53,843,237 elements/sec
+
+Parallel (20,000 digests):
+  Throughput: 267,098,362 elements/sec
+  Total time: 2.40 seconds
+  Speedup vs sequential: 0.20x
+
+======================================================================
+Baseline established! Save these numbers for comparison.
+======================================================================
+

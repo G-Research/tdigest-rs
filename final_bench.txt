@@ -1,0 +1,187 @@
+   Compiling tdigest_core v0.2.0 (/Users/danny/code/tdigest-rs)
+    Finished `bench` profile [optimized] target(s) in 1.54s
+     Running benches/benchmarks.rs (target/release/deps/benchmarks-6994cd075f97fb36)
+Gnuplot not found, using plotters backend
+Benchmarking create_digest/100
+Benchmarking create_digest/100: Warming up for 3.0000 s
+Benchmarking create_digest/100: Collecting 100 samples in estimated 5.0045 s (3.4M iterations)
+Benchmarking create_digest/100: Analyzing
+create_digest/100       time:   [1.4585 µs 1.4611 µs 1.4639 µs]
+                        thrpt:  [68.310 Melem/s 68.442 Melem/s 68.564 Melem/s]
+                 change:
+                        time:   [+0.7413% +0.9737% +1.2006%] (p = 0.00 < 0.05)
+                        thrpt:  [-1.1863% -0.9643% -0.7358%]
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking create_digest/1000
+Benchmarking create_digest/1000: Warming up for 3.0000 s
+Benchmarking create_digest/1000: Collecting 100 samples in estimated 5.0523 s (399k iterations)
+Benchmarking create_digest/1000: Analyzing
+create_digest/1000      time:   [12.833 µs 12.938 µs 13.051 µs]
+                        thrpt:  [76.623 Melem/s 77.294 Melem/s 77.921 Melem/s]
+                 change:
+                        time:   [+0.0012% +0.4880% +0.9674%] (p = 0.06 > 0.05)
+                        thrpt:  [-0.9582% -0.4856% -0.0012%]
+                        No change in performance detected.
+Found 11 outliers among 100 measurements (11.00%)
+  1 (1.00%) low mild
+  4 (4.00%) high mild
+  6 (6.00%) high severe
+Benchmarking create_digest/10000
+Benchmarking create_digest/10000: Warming up for 3.0000 s
+Benchmarking create_digest/10000: Collecting 100 samples in estimated 5.8244 s (35k iterations)
+Benchmarking create_digest/10000: Analyzing
+create_digest/10000     time:   [164.80 µs 165.24 µs 165.66 µs]
+                        thrpt:  [60.363 Melem/s 60.520 Melem/s 60.680 Melem/s]
+                 change:
+                        time:   [-0.3727% -0.0820% +0.2063%] (p = 0.58 > 0.05)
+                        thrpt:  [-0.2059% +0.0821% +0.3741%]
+                        No change in performance detected.
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) low mild
+Benchmarking create_digest/32000
+Benchmarking create_digest/32000: Warming up for 3.0000 s
+Benchmarking create_digest/32000: Collecting 100 samples in estimated 6.1726 s (10k iterations)
+Benchmarking create_digest/32000: Analyzing
+create_digest/32000     time:   [612.66 µs 615.24 µs 618.24 µs]
+                        thrpt:  [51.760 Melem/s 52.012 Melem/s 52.231 Melem/s]
+                 change:
+                        time:   [+0.7749% +1.2820% +1.7640%] (p = 0.00 < 0.05)
+                        thrpt:  [-1.7334% -1.2658% -0.7690%]
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  7 (7.00%) high mild
+
+Benchmarking merge_digests/100
+Benchmarking merge_digests/100: Warming up for 3.0000 s
+Benchmarking merge_digests/100: Collecting 100 samples in estimated 5.0054 s (4.3M iterations)
+Benchmarking merge_digests/100: Analyzing
+merge_digests/100       time:   [1.1479 µs 1.1503 µs 1.1527 µs]
+                        thrpt:  [173.51 Melem/s 173.86 Melem/s 174.22 Melem/s]
+                 change:
+                        time:   [+1.7624% +2.2006% +2.8468%] (p = 0.00 < 0.05)
+                        thrpt:  [-2.7680% -2.1532% -1.7319%]
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking merge_digests/1000
+Benchmarking merge_digests/1000: Warming up for 3.0000 s
+Benchmarking merge_digests/1000: Collecting 100 samples in estimated 5.0014 s (3.4M iterations)
+Benchmarking merge_digests/1000: Analyzing
+merge_digests/1000      time:   [1.4605 µs 1.4637 µs 1.4671 µs]
+                        thrpt:  [1.3632 Gelem/s 1.3664 Gelem/s 1.3694 Gelem/s]
+                 change:
+                        time:   [-0.7475% +0.4694% +1.4188%] (p = 0.44 > 0.05)
+                        thrpt:  [-1.3989% -0.4672% +0.7531%]
+                        No change in performance detected.
+Found 5 outliers among 100 measurements (5.00%)
+  5 (5.00%) high mild
+Benchmarking merge_digests/10000
+Benchmarking merge_digests/10000: Warming up for 3.0000 s
+Benchmarking merge_digests/10000: Collecting 100 samples in estimated 5.0018 s (3.2M iterations)
+Benchmarking merge_digests/10000: Analyzing
+merge_digests/10000     time:   [1.5837 µs 1.5860 µs 1.5887 µs]
+                        thrpt:  [12.589 Gelem/s 12.610 Gelem/s 12.629 Gelem/s]
+                 change:
+                        time:   [-16.001% -9.4343% -3.4721%] (p = 0.00 < 0.05)
+                        thrpt:  [+3.5970% +10.417% +19.049%]
+                        Performance has improved.
+Found 19 outliers among 100 measurements (19.00%)
+  1 (1.00%) low severe
+  13 (13.00%) low mild
+  5 (5.00%) high mild
+
+Benchmarking compute_quantile/100
+Benchmarking compute_quantile/100: Warming up for 3.0000 s
+Benchmarking compute_quantile/100: Collecting 100 samples in estimated 5.0002 s (36M iterations)
+Benchmarking compute_quantile/100: Analyzing
+compute_quantile/100    time:   [139.10 ns 142.61 ns 147.46 ns]
+                        change: [+2.9226% +4.8943% +7.3680%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 12 outliers among 100 measurements (12.00%)
+  6 (6.00%) high mild
+  6 (6.00%) high severe
+Benchmarking compute_quantile/1000
+Benchmarking compute_quantile/1000: Warming up for 3.0000 s
+Benchmarking compute_quantile/1000: Collecting 100 samples in estimated 5.0000 s (33M iterations)
+Benchmarking compute_quantile/1000: Analyzing
+compute_quantile/1000   time:   [150.62 ns 150.98 ns 151.35 ns]
+                        change: [+0.1916% +0.5051% +0.8224%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 7 outliers among 100 measurements (7.00%)
+  5 (5.00%) high mild
+  2 (2.00%) high severe
+Benchmarking compute_quantile/10000
+Benchmarking compute_quantile/10000: Warming up for 3.0000 s
+Benchmarking compute_quantile/10000: Collecting 100 samples in estimated 5.0001 s (31M iterations)
+Benchmarking compute_quantile/10000: Analyzing
+compute_quantile/10000  time:   [160.17 ns 160.44 ns 160.72 ns]
+                        change: [+0.8563% +1.1114% +1.3599%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+Benchmarking update/100
+Benchmarking update/100: Warming up for 3.0000 s
+Benchmarking update/100: Collecting 100 samples in estimated 5.0057 s (3.4M iterations)
+Benchmarking update/100: Analyzing
+update/100              time:   [1.4720 µs 1.4767 µs 1.4823 µs]
+                        thrpt:  [67.461 Melem/s 67.717 Melem/s 67.936 Melem/s]
+                 change:
+                        time:   [+2.1284% +2.4515% +2.7975%] (p = 0.00 < 0.05)
+                        thrpt:  [-2.7214% -2.3929% -2.0841%]
+                        Performance has regressed.
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  4 (4.00%) high severe
+Benchmarking update/1000
+Benchmarking update/1000: Warming up for 3.0000 s
+Benchmarking update/1000: Collecting 100 samples in estimated 5.0027 s (3.4M iterations)
+Benchmarking update/1000: Analyzing
+update/1000             time:   [1.4555 µs 1.4576 µs 1.4599 µs]
+                        thrpt:  [684.98 Melem/s 686.06 Melem/s 687.03 Melem/s]
+                 change:
+                        time:   [-0.2293% +0.3385% +0.8619%] (p = 0.23 > 0.05)
+                        thrpt:  [-0.8546% -0.3373% +0.2298%]
+                        No change in performance detected.
+Benchmarking update/10000
+Benchmarking update/10000: Warming up for 3.0000 s
+Benchmarking update/10000: Collecting 100 samples in estimated 5.0018 s (2.8M iterations)
+Benchmarking update/10000: Analyzing
+update/10000            time:   [1.7373 µs 1.7416 µs 1.7461 µs]
+                        thrpt:  [5.7270 Gelem/s 5.7418 Gelem/s 5.7560 Gelem/s]
+                 change:
+                        time:   [+2.5467% +2.8899% +3.2063%] (p = 0.00 < 0.05)
+                        thrpt:  [-3.1067% -2.8087% -2.4834%]
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+Benchmarking update/32000
+Benchmarking update/32000: Warming up for 3.0000 s
+Benchmarking update/32000: Collecting 100 samples in estimated 5.0041 s (3.2M iterations)
+Benchmarking update/32000: Analyzing
+update/32000            time:   [1.5875 µs 1.5931 µs 1.5983 µs]
+                        thrpt:  [20.022 Gelem/s 20.087 Gelem/s 20.157 Gelem/s]
+                 change:
+                        time:   [+1.5953% +1.9494% +2.2908%] (p = 0.00 < 0.05)
+                        thrpt:  [-2.2395% -1.9122% -1.5703%]
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+
+Benchmarking large_batch/create_32k
+Benchmarking large_batch/create_32k: Warming up for 3.0000 s
+Benchmarking large_batch/create_32k: Collecting 20 samples in estimated 5.0504 s (7770 iterations)
+Benchmarking large_batch/create_32k: Analyzing
+large_batch/create_32k  time:   [627.52 µs 645.49 µs 674.78 µs]
+                        thrpt:  [47.423 Melem/s 49.574 Melem/s 50.994 Melem/s]
+                 change:
+                        time:   [+1.3871% +6.3913% +13.340%] (p = 0.04 < 0.05)
+                        thrpt:  [-11.770% -6.0073% -1.3681%]
+                        Performance has regressed.
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+

@@ -90,6 +90,29 @@ macro_rules! generate {
                 })
             }
 
+            fn update(
+                &self,
+                py: Python,
+                buffer: PyReadonlyArray1<$type>,
+                delta: $type,
+                merge_delta: $type,
+            ) -> PyResult<Self> {
+                if buffer.len() == 0 {
+                    return Err(PyValueError::new_err("Buffer must be non-empty!"));
+                }
+
+                let buffer_vec = buffer.as_array().to_vec();
+
+                py.allow_threads(|| {
+                    // Create a TDigest from the buffer and merge with self
+                    // Use delta for buffer creation, merge_delta for merging
+                    let buffer_digest = TDigest::from_array(&buffer_vec, delta)?;
+                    Ok(Self {
+                        inner: self.inner.merge(&buffer_digest, merge_delta)?,
+                    })
+                })
+            }
+
             fn n_zero_weights(&self) -> PyResult<usize> {
                 Ok(self.inner.n_zero_weights()?)
             }
