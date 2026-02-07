@@ -100,3 +100,43 @@ class TDigest:
         # Use the optimized Rust update() method that does both operations in one FFI call
         digest = self._digest.update(buffer, delta=delta, merge_delta=merge_delta)
         return self.__class__(digest)
+
+    def batch_update(
+        self, buffers: list[npt.NDArray[np.float32]], delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA
+    ) -> list["TDigest"]:
+        """
+        Update this digest with multiple buffers at once.
+        This is much faster than calling update() in a loop as it minimizes FFI overhead.
+
+        Args:
+            buffers: List of numpy arrays to update with
+            delta: Delta parameter for creating buffer digests
+            merge_delta: Delta parameter for merging
+
+        Returns:
+            List of updated TDigest instances
+        """
+        updated_digests = self._digest.batch_update(buffers, delta=delta, merge_delta=merge_delta)
+        return [self.__class__(d) for d in updated_digests]
+
+    @classmethod
+    def batch_from_arrays(
+        cls, arrays: list[npt.NDArray[np.float32]], delta: float = DEFAULT_DELTA
+    ) -> list["TDigest"]:
+        """
+        Create multiple TDigests from arrays at once.
+        This is much faster than calling from_array() in a loop as it minimizes FFI overhead.
+
+        Args:
+            arrays: List of numpy arrays to create digests from
+            delta: Delta parameter
+
+        Returns:
+            List of TDigest instances
+        """
+        if not arrays:
+            return []
+
+        _cls = cls._get_internal_cls(arrays[0])
+        digests = _cls.batch_from_arrays(arrays, delta)
+        return [cls(d) for d in digests]

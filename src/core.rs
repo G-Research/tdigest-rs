@@ -3,7 +3,7 @@ use itertools::{izip, Itertools};
 use num::Float;
 
 use crate::{
-    scale::ScaleContext,
+    scale::log_q_limit,
     traits::{FloatConst, TotalOrd},
 };
 
@@ -93,48 +93,38 @@ where
 
     if n > 0 {
         let total_weight = T::from(weight_slice.iter().sum::<u32>()).unwrap();
-
-        // Pre-convert all weights to float type to avoid repeated conversions in hot loop
-        let weight_f: Vec<T> = weight_slice.iter()
-            .map(|&w| T::from(w).unwrap())
-            .collect();
-
-        let mut cumulative_weight_f = T::ZERO;
+        let mut cumulative_weight = 0;
         let mut sigma_mean = mean_slice[0];
-        let mut sigma_weight: u32 = weight_slice[0];
-        let mut sigma_weight_f = weight_f[0];
+        let mut sigma_weight = weight_slice[0];
         let mut sigma_mask = mask_slice[0];
+        let mut q_limit = log_q_limit(T::ZERO, delta, n)?;
 
-        // Create ScaleContext to cache expensive logarithm calculations
-        let scale_ctx = ScaleContext::new(delta, n);
-        let mut q_limit = scale_ctx.log_q_limit(T::ZERO);
-
-        for ((&mu, &wght, &msk), &wght_f) in izip!(
+        for (&mu, &wght, &msk) in izip!(
             mean_slice.iter().skip(1),
             weight_slice.iter().skip(1),
             mask_slice.iter().skip(1)
-        ).zip(weight_f.iter().skip(1)) {
+        ) {
             if mu.is_nan() {
                 continue;
             }
 
-            let q = (cumulative_weight_f + sigma_weight_f + wght_f) / total_weight;
+            let q = T::from(cumulative_weight + sigma_weight + wght).unwrap() / total_weight;
             if q <= q_limit {
-                sigma_mean = (sigma_mean * sigma_weight_f + mu * wght_f)
-                    / (sigma_weight_f + wght_f);
+                sigma_mean = ((sigma_mean * T::from(sigma_weight).unwrap())
+                    + mu * T::from(wght).unwrap())
+                    / T::from(sigma_weight + wght).unwrap();
                 sigma_weight += wght;
-                sigma_weight_f = sigma_weight_f + wght_f;
                 sigma_mask = false;
             } else {
                 new_means.push(sigma_mean);
                 new_weights.push(sigma_weight);
                 new_mask.push(sigma_mask);
 
-                cumulative_weight_f = cumulative_weight_f + sigma_weight_f;
-                q_limit = scale_ctx.log_q_limit(cumulative_weight_f / total_weight);
+                cumulative_weight += sigma_weight;
+                q_limit =
+                    log_q_limit(T::from(cumulative_weight).unwrap() / total_weight, delta, n)?;
                 sigma_mean = mu;
                 sigma_weight = wght;
-                sigma_weight_f = wght_f;
                 sigma_mask = msk;
             }
         }

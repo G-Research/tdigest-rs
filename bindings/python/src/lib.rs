@@ -116,6 +116,71 @@ macro_rules! generate {
             fn n_zero_weights(&self) -> PyResult<usize> {
                 Ok(self.inner.n_zero_weights()?)
             }
+
+            /// Batch update: process multiple buffers at once with parallel processing.
+            /// Returns a vector of updated digests.
+            #[pyo3(signature = (buffers, delta, merge_delta=None))]
+            fn batch_update(
+                &self,
+                py: Python,
+                buffers: Vec<PyReadonlyArray1<$type>>,
+                delta: $type,
+                merge_delta: Option<$type>,
+            ) -> PyResult<Vec<Self>> {
+                let merge_delta = merge_delta.unwrap_or(delta);
+
+                if buffers.is_empty() {
+                    return Ok(vec![]);
+                }
+
+                // Convert all arrays to vecs before releasing GIL
+                let mut buffer_vecs = Vec::with_capacity(buffers.len());
+                for buffer in buffers {
+                    if buffer.len() == 0 {
+                        return Err(PyValueError::new_err("Buffer must be non-empty!"));
+                    }
+                    buffer_vecs.push(buffer.as_array().to_vec());
+                }
+
+                py.allow_threads(|| {
+                    // Use parallel iterator for batch processing
+                    let buffer_refs: Vec<&[$type]> = buffer_vecs.iter().map(|v| v.as_slice()).collect();
+                    let updated = self.inner.batch_update(&buffer_refs, merge_delta)?;
+
+                    Ok(updated.into_iter().map(|inner| Self { inner }).collect())
+                })
+            }
+
+            /// Batch create: create multiple digests from arrays at once with parallel processing.
+            /// Returns a vector of digests.
+            #[classmethod]
+            fn batch_from_arrays(
+                _cls: &PyType,
+                py: Python,
+                arrays: Vec<PyReadonlyArray1<$type>>,
+                delta: $type,
+            ) -> PyResult<Vec<Self>> {
+                if arrays.is_empty() {
+                    return Ok(vec![]);
+                }
+
+                // Convert all arrays to vecs before releasing GIL
+                let mut vecs = Vec::with_capacity(arrays.len());
+                for arr in arrays {
+                    if arr.len() == 0 {
+                        return Err(PyValueError::new_err("Array must be non-empty!"));
+                    }
+                    vecs.push(arr.as_array().to_vec());
+                }
+
+                py.allow_threads(|| {
+                    // Use parallel iterator for batch processing
+                    let vec_refs: Vec<&[$type]> = vecs.iter().map(|v| v.as_slice()).collect();
+                    let digests = TDigest::batch_from_arrays(&vec_refs, delta)?;
+
+                    Ok(digests.into_iter().map(|inner| Self { inner }).collect())
+                })
+            }
         }
     };
 }

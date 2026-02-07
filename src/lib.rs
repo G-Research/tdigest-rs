@@ -8,6 +8,7 @@ use crate::{
 };
 use anyhow::Result;
 use num::Float;
+use rayon::prelude::*;
 
 pub struct TDigest<T> {
     pub means: Vec<T>,
@@ -55,5 +56,32 @@ where
 
     pub fn n_zero_weights(&self) -> Result<usize> {
         Ok(self.weights.iter().filter(|&w| *w == 0).count())
+    }
+
+    /// Create multiple digests from arrays in parallel.
+    /// Much faster than calling from_array() in a loop.
+    pub fn batch_from_arrays(arrays: &[&[T]], delta: T) -> Result<Vec<Self>>
+    where
+        T: Send + Sync,
+    {
+        arrays
+            .par_iter()
+            .map(|&arr| Self::from_array(arr, delta))
+            .collect()
+    }
+
+    /// Update multiple digests with corresponding buffers in parallel.
+    /// Much faster than calling update() in a loop.
+    pub fn batch_update(&self, buffers: &[&[T]], delta: T) -> Result<Vec<Self>>
+    where
+        T: Send + Sync,
+    {
+        buffers
+            .par_iter()
+            .map(|&buffer| {
+                let buffer_digest = Self::from_array(buffer, delta)?;
+                self.merge(&buffer_digest, delta)
+            })
+            .collect()
     }
 }

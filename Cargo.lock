@@ -736,6 +736,7 @@ dependencies = [
  "itertools 0.14.0",
  "num",
  "num-traits",
+ "rayon",
 ]
 
 [[package]]
