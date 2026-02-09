@@ -1,13 +1,10 @@
 """
 PyTorch-based T-Digest implementation for GPU acceleration.
 
-This module provides a GPU-accelerated alternative to the Rust implementation.
-Can run on CPU for development/testing or GPU for production.
+Provides a GPU-accelerated alternative to the Rust implementation.
+Works on CPU for development/testing or GPU for production.
 
-Note: This module requires PyTorch. Install with:
-    pip install tdigest-rs[gpu]
-    or
-    uv pip install tdigest-rs[gpu]
+Requires PyTorch: pip install tdigest-rs[gpu]
 """
 
 try:
@@ -18,16 +15,18 @@ except ImportError:
     torch = None
 
 import numpy as np
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple
 from dataclasses import dataclass
+
+# T-Digest algorithm constants from the paper
+SCALE_BASE_MULTIPLIER = 4.0
+SCALE_BASE_OFFSET = 24.0
 
 
 def _check_torch_available():
-    """Raise helpful error if torch is not available."""
     if not TORCH_AVAILABLE:
         raise ImportError(
-            "PyTorch backend requires torch to be installed. "
-            "Install with: pip install tdigest-rs[gpu] or uv pip install tdigest-rs[gpu]"
+            "PyTorch is required. Install with: pip install tdigest-rs[gpu]"
         )
 
 
@@ -36,30 +35,29 @@ class TDigestResult:
     """Result from batch T-Digest computation."""
     means: np.ndarray      # [batch_size, max_centroids]
     weights: np.ndarray    # [batch_size, max_centroids]
-    counts: np.ndarray     # [batch_size] - number of valid centroids per digest
+    counts: np.ndarray     # [batch_size]
 
 
 class TDigestTorch:
     """
-    PyTorch implementation of T-Digest for batch processing.
+    PyTorch implementation of T-Digest for batch processing on GPU.
 
-    Designed for processing large batches (1000s) of arrays on GPU.
+    Designed for processing large batches (1000s) of arrays.
     Falls back to CPU when GPU unavailable.
     """
 
     @staticmethod
     def _compute_q_limit(q: float, delta: float, n: int) -> float:
         """
-        Compute the q_limit threshold for clustering.
-
-        This matches the scale function from the Rust implementation:
-        log_q_limit(q, delta, n) via log_scale and inverse_log_scale.
+        Compute clustering threshold matching Rust's log_q_limit function.
         """
-        if q <= 0 or q >= 1:
-            return 0.0 if q <= 0 else 1.0
+        if q <= 0:
+            return 0.0
+        if q >= 1:
+            return 1.0
 
         n_over_delta = n / delta
-        base_factor = np.log(n_over_delta) * 4.0 + 24.0
+        base_factor = np.log(n_over_delta) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
         scale_factor = delta / base_factor
 
         k = scale_factor * np.log(q / (1.0 - q)) + 1.0
@@ -72,17 +70,12 @@ class TDigestTorch:
         sorted_data: torch.Tensor,
         delta: float,
         max_centroids: int
-    ) -> tuple[torch.Tensor, torch.Tensor, int]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, int]:
         """
-        Cluster a single sorted array into centroids.
-
-        This is the core T-Digest algorithm, inherently sequential.
-        Matches the compute() function from Rust core.rs.
+        Core T-Digest clustering algorithm matching Rust's compute() function.
 
         Returns:
-            means: [max_centroids] padded tensor
-            weights: [max_centroids] padded tensor
-            count: actual number of centroids
+            means, weights (padded to max_centroids), actual count
         """
         n = len(sorted_data)
         device = sorted_data.device
@@ -94,7 +87,6 @@ class TDigestTorch:
         if n == 0:
             return means, weights, 0
 
-        # Handle infinities
         start = 0
         end = n
         while start < n and sorted_data[start] == float('-inf'):
@@ -105,14 +97,12 @@ class TDigestTorch:
         centroid_idx = 0
 
         if start > 0:
-            # Aggregate all negative infinities
             means[centroid_idx] = float('-inf')
             weights[centroid_idx] = float(start)
             centroid_idx += 1
 
-        inf_weight = float(n - end)
+        inf_count = n - end
 
-        # Main clustering
         if end > start:
             data_slice = sorted_data[start:end]
             slice_len = end - start
@@ -133,16 +123,19 @@ class TDigestTorch:
                 q = (cumulative_weight + sigma_weight + 1.0) / total_weight
 
                 if q <= q_limit:
-                    # Merge into current centroid
                     sigma_mean = (sigma_mean * sigma_weight + mu) / (sigma_weight + 1.0)
                     sigma_weight += 1.0
                 else:
-                    # Save current centroid
+                    if centroid_idx >= max_centroids:
+                        raise ValueError(
+                            f"Exceeded max_centroids={max_centroids}. "
+                            "Increase max_centroids or use larger delta."
+                        )
+
                     means[centroid_idx] = sigma_mean
                     weights[centroid_idx] = sigma_weight
                     centroid_idx += 1
 
-                    # Start new centroid
                     cumulative_weight += sigma_weight
                     q_limit = TDigestTorch._compute_q_limit(
                         cumulative_weight / total_weight, delta, slice_len
@@ -150,16 +143,24 @@ class TDigestTorch:
                     sigma_mean = mu
                     sigma_weight = 1.0
 
-            # Save final centroid
             if not np.isnan(sigma_mean):
+                if centroid_idx >= max_centroids:
+                    raise ValueError(
+                        f"Exceeded max_centroids={max_centroids}. "
+                        "Increase max_centroids or use larger delta."
+                    )
                 means[centroid_idx] = sigma_mean
                 weights[centroid_idx] = sigma_weight
                 centroid_idx += 1
 
-        # Handle positive infinity
-        if inf_weight > 0:
+        if inf_count > 0:
+            if centroid_idx >= max_centroids:
+                raise ValueError(
+                    f"Exceeded max_centroids={max_centroids}. "
+                    "Increase max_centroids or use larger delta."
+                )
             means[centroid_idx] = float('inf')
-            weights[centroid_idx] = inf_weight
+            weights[centroid_idx] = float(inf_count)
             centroid_idx += 1
 
         return means, weights, centroid_idx
@@ -176,16 +177,17 @@ class TDigestTorch:
         Create T-Digests for a batch of arrays.
 
         Args:
-            arrays: List of 1D numpy arrays to digest
-            delta: Compression parameter (default: 0.01)
-            device: 'cpu', 'cuda', or 'cuda:0', etc.
-            max_centroids: Maximum centroids per digest (default: 500)
+            arrays: List of 1D numpy arrays (must all be same length)
+            delta: Compression parameter (0 < delta <= 1)
+            device: 'cpu', 'cuda', 'cuda:0', etc.
+            max_centroids: Maximum centroids per digest
 
         Returns:
-            TDigestResult with means, weights, and counts for each digest
+            TDigestResult with means, weights, and counts
 
         Raises:
-            ImportError: If torch is not installed
+            ImportError: If torch not installed
+            ValueError: If arrays have different lengths or invalid delta
         """
         _check_torch_available()
 
@@ -196,22 +198,25 @@ class TDigestTorch:
                 counts=np.array([])
             )
 
+        if delta <= 0 or delta > 1:
+            raise ValueError(f"delta must be in (0, 1], got {delta}")
+
+        lengths = [len(arr) for arr in arrays]
+        if len(set(lengths)) > 1:
+            raise ValueError(
+                f"All arrays must have same length. Got lengths: {set(lengths)}"
+            )
+
         batch_size = len(arrays)
 
-        # Convert to tensor and move to device
-        # Use float64 for numerical precision to match Rust
         data = torch.tensor(
             np.array(arrays),
             dtype=torch.float64,
             device=device
         )
 
-        # Sort each array
         sorted_data, _ = torch.sort(data, dim=1)
 
-        # Process each digest independently
-        # This loop is sequential across batch but each iteration is independent
-        # On GPU, we'd parallelize this, but for CPU it's fine
         all_means = []
         all_weights = []
         all_counts = []
@@ -226,12 +231,10 @@ class TDigestTorch:
             all_weights.append(weights)
             all_counts.append(count)
 
-        # Stack results
         means_batch = torch.stack(all_means)
         weights_batch = torch.stack(all_weights)
-        counts_batch = torch.tensor(all_counts, dtype=torch.int32)
+        counts_batch = torch.tensor(all_counts, dtype=torch.int64)
 
-        # Convert back to numpy
         return TDigestResult(
             means=means_batch.cpu().numpy(),
             weights=weights_batch.cpu().numpy(),
@@ -240,14 +243,12 @@ class TDigestTorch:
 
     @staticmethod
     def is_available() -> bool:
-        """Check if GPU acceleration is available."""
-        if not TORCH_AVAILABLE:
-            return False
-        return torch.cuda.is_available()
+        """Check if CUDA GPU acceleration is available."""
+        return TORCH_AVAILABLE and torch.cuda.is_available()
 
     @staticmethod
     def get_device() -> str:
-        """Get the best available device."""
+        """Get the best available device: cuda > mps > cpu."""
         if not TORCH_AVAILABLE:
             return 'cpu'
 
@@ -265,18 +266,15 @@ def batch_from_arrays_torch(
     device: Optional[str] = None
 ) -> TDigestResult:
     """
-    Convenience function for batch T-Digest creation with PyTorch.
+    Convenience function with automatic device selection.
 
     Args:
         arrays: List of 1D numpy arrays
         delta: Compression parameter
-        device: Device to use ('cpu', 'cuda', or None for auto)
+        device: Device ('cpu', 'cuda', or None for auto)
 
     Returns:
-        TDigestResult with means, weights, and counts
-
-    Raises:
-        ImportError: If torch is not installed
+        TDigestResult
     """
     _check_torch_available()
 

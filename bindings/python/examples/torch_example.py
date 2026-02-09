@@ -1,29 +1,26 @@
 """
-Example usage of PyTorch backend for T-Digest.
+Example usage of PyTorch T-Digest implementation.
 
-Demonstrates CPU usage (works on MacBook) and shows how results
+Demonstrates CPU usage (works on MacBook) and verifies results
 match the Rust implementation exactly.
 """
 
 import numpy as np
 import time
 from tdigest_rs import TDigest
-from tdigest_rs.torch_backend import TDigestTorch, batch_from_arrays_torch
+from tdigest_rs.torch_impl import TDigestTorch, batch_from_arrays_torch
 
 
 def basic_example():
-    """Basic usage example."""
     print("=" * 60)
-    print("Basic PyTorch Backend Example")
+    print("Basic Example")
     print("=" * 60)
 
-    # Create sample data
     np.random.seed(42)
     arrays = [np.random.randn(5000).astype(np.float64) for _ in range(10)]
 
     print(f"\nProcessing {len(arrays)} arrays of {len(arrays[0])} elements each")
 
-    # Process with PyTorch backend
     result = TDigestTorch.batch_from_arrays(arrays, delta=0.01, device='cpu')
 
     print(f"\nResults:")
@@ -35,7 +32,6 @@ def basic_example():
 
 
 def correctness_check():
-    """Verify PyTorch backend matches Rust exactly."""
     print("\n" + "=" * 60)
     print("Correctness Verification")
     print("=" * 60)
@@ -43,27 +39,23 @@ def correctness_check():
     np.random.seed(123)
     data = np.random.randn(10000).astype(np.float64)
 
-    # Rust version
     rust_digest = TDigest.from_array(data, delta=0.01)
-
-    # PyTorch version
     torch_result = TDigestTorch.batch_from_arrays([data], delta=0.01, device='cpu')
 
     count = torch_result.counts[0]
     torch_means = torch_result.means[0, :count]
     torch_weights = torch_result.weights[0, :count]
 
-    # Compare
     means_match = np.allclose(torch_means, rust_digest.means, rtol=1e-10, atol=1e-10)
     weights_match = np.array_equal(torch_weights.astype(np.uint32), rust_digest.weights)
 
     print(f"\nRust centroids: {len(rust_digest.means)}")
     print(f"PyTorch centroids: {count}")
-    print(f"Means match: {means_match} ✓" if means_match else "Means match: {means_match} ✗")
-    print(f"Weights match: {weights_match} ✓" if weights_match else "Weights match: {weights_match} ✗")
+    print(f"Means match: {means_match} {'✓' if means_match else '✗'}")
+    print(f"Weights match: {weights_match} {'✓' if weights_match else '✗'}")
 
     if means_match and weights_match:
-        print("\n✅ PyTorch backend produces IDENTICAL results to Rust!")
+        print("\n✅ PyTorch produces IDENTICAL results to Rust!")
     else:
         print("\n❌ Results differ!")
 
@@ -71,7 +63,6 @@ def correctness_check():
 
 
 def performance_comparison():
-    """Compare performance of Rust vs PyTorch on CPU."""
     print("\n" + "=" * 60)
     print("Performance Comparison (CPU)")
     print("=" * 60)
@@ -83,12 +74,10 @@ def performance_comparison():
 
     print(f"\nProcessing {n_arrays} arrays of {array_size} elements each")
 
-    # Rust sequential
     start = time.time()
     rust_digests = [TDigest.from_array(arr, delta=0.01) for arr in arrays]
     rust_time = time.time() - start
 
-    # PyTorch CPU
     start = time.time()
     torch_result = TDigestTorch.batch_from_arrays(arrays, delta=0.01, device='cpu')
     torch_time = time.time() - start
@@ -100,27 +89,23 @@ def performance_comparison():
     if torch_time < rust_time * 1.1:
         print("✅ PyTorch performance is competitive")
     else:
-        print("⚠️  PyTorch is slower (expected on CPU, would be faster on GPU)")
+        print("⚠️  PyTorch slower on CPU (expected - would be faster on GPU)")
 
 
 def quantile_example():
-    """Show how to compute quantiles from PyTorch results."""
     print("\n" + "=" * 60)
-    print("Quantile Computation Example")
+    print("Quantile Computation")
     print("=" * 60)
 
     np.random.seed(789)
     data = np.random.randn(20000).astype(np.float64)
 
-    # Process with PyTorch
     result = TDigestTorch.batch_from_arrays([data], delta=0.01, device='cpu')
 
-    # Extract results
     count = result.counts[0]
     means = result.means[0, :count]
     weights = result.weights[0, :count].astype(np.uint32)
 
-    # Create TDigest for quantile computation
     digest = TDigest.from_means_weights(means, weights, delta=0.01)
 
     print(f"\nComputed {count} centroids from {len(data)} points")
@@ -131,7 +116,6 @@ def quantile_example():
 
 
 def device_info():
-    """Show available devices."""
     print("\n" + "=" * 60)
     print("Device Information")
     print("=" * 60)
