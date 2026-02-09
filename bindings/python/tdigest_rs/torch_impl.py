@@ -15,6 +15,7 @@ except ImportError:
     torch = None
 
 import numpy as np
+import math
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
 
@@ -57,11 +58,11 @@ class TDigestTorch:
             return 1.0
 
         n_over_delta = n / delta
-        base_factor = np.log(n_over_delta) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
+        base_factor = math.log(n_over_delta) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
         scale_factor = delta / base_factor
 
-        k = scale_factor * np.log(q / (1.0 - q)) + 1.0
-        q_limit = 1.0 / (1.0 + np.exp(-k * base_factor / delta))
+        k = scale_factor * math.log(q / (1.0 - q)) + 1.0
+        q_limit = 1.0 / (1.0 + math.exp(-k * base_factor / delta))
 
         return q_limit
 
@@ -87,12 +88,11 @@ class TDigestTorch:
         if n == 0:
             return means, weights, 0
 
-        start = 0
-        end = n
-        while start < n and sorted_data[start] == float('-inf'):
-            start += 1
-        while end > start and sorted_data[end - 1] == float('inf'):
-            end -= 1
+        is_neg_inf = sorted_data == float('-inf')
+        is_pos_inf = sorted_data == float('inf')
+
+        start = int(is_neg_inf.sum().item()) if is_neg_inf.any().item() else 0
+        end = n - int(is_pos_inf.sum().item()) if is_pos_inf.any().item() else n
 
         centroid_idx = 0
 
@@ -108,16 +108,18 @@ class TDigestTorch:
             slice_len = end - start
             total_weight = float(slice_len)
 
+            data_cpu = data_slice.cpu().numpy()
+
             cumulative_weight = 0.0
-            sigma_mean = data_slice[0].item()
+            sigma_mean = float(data_cpu[0])
             sigma_weight = 1.0
 
             q_limit = TDigestTorch._compute_q_limit(0.0, delta, slice_len)
 
             for i in range(1, slice_len):
-                mu = data_slice[i].item()
+                mu = float(data_cpu[i])
 
-                if np.isnan(mu):
+                if math.isnan(mu):
                     continue
 
                 q = (cumulative_weight + sigma_weight + 1.0) / total_weight
@@ -143,7 +145,7 @@ class TDigestTorch:
                     sigma_mean = mu
                     sigma_weight = 1.0
 
-            if not np.isnan(sigma_mean):
+            if not math.isnan(sigma_mean):
                 if centroid_idx >= max_centroids:
                     raise ValueError(
                         f"Exceeded max_centroids={max_centroids}. "
@@ -217,9 +219,17 @@ class TDigestTorch:
 
         sorted_data, _ = torch.sort(data, dim=1)
 
-        all_means = []
-        all_weights = []
-        all_counts = []
+        means_batch = torch.zeros(
+            (batch_size, max_centroids),
+            dtype=torch.float64,
+            device=device
+        )
+        weights_batch = torch.zeros(
+            (batch_size, max_centroids),
+            dtype=torch.float64,
+            device=device
+        )
+        counts_batch = torch.zeros(batch_size, dtype=torch.int64, device=device)
 
         for i in range(batch_size):
             means, weights, count = cls._cluster_single_digest(
@@ -227,13 +237,9 @@ class TDigestTorch:
                 delta,
                 max_centroids
             )
-            all_means.append(means)
-            all_weights.append(weights)
-            all_counts.append(count)
-
-        means_batch = torch.stack(all_means)
-        weights_batch = torch.stack(all_weights)
-        counts_batch = torch.tensor(all_counts, dtype=torch.int64)
+            means_batch[i] = means
+            weights_batch[i] = weights
+            counts_batch[i] = count
 
         return TDigestResult(
             means=means_batch.cpu().numpy(),
