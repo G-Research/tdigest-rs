@@ -6,25 +6,27 @@ match the Rust implementation exactly.
 """
 
 import numpy as np
+import torch
 import time
 from tdigest_rs import TDigest
-from tdigest_rs.torch_impl import TDigestTorch, batch_from_arrays_torch
+from tdigest_rs.torch_impl import TDigestTorch, batch_from_tensor_torch
 
 
 def basic_example():
     print("=" * 60)
-    print("Basic Example")
+    print("Basic Example - Tensor API")
     print("=" * 60)
 
-    np.random.seed(42)
-    arrays = [np.random.randn(5000).astype(np.float64) for _ in range(10)]
+    torch.manual_seed(42)
+    data = torch.randn(10, 5000, dtype=torch.float64)
 
-    print(f"\nProcessing {len(arrays)} arrays of {len(arrays[0])} elements each")
+    print(f"\nProcessing tensor of shape {list(data.shape)}")
+    print(f"Device: {data.device}")
 
-    result = TDigestTorch.batch_from_arrays(arrays, delta=0.01, device='cpu')
+    result = TDigestTorch.batch_from_tensor(data, delta=0.01)
 
     print(f"\nResults:")
-    for i in range(len(arrays)):
+    for i in range(len(result.counts)):
         count = result.counts[i]
         print(f"  Digest {i}: {count} centroids")
 
@@ -36,11 +38,12 @@ def correctness_check():
     print("Correctness Verification")
     print("=" * 60)
 
-    np.random.seed(123)
-    data = np.random.randn(10000).astype(np.float64)
+    torch.manual_seed(123)
+    data_tensor = torch.randn(1, 10000, dtype=torch.float64)
+    data_np = data_tensor[0].numpy()
 
-    rust_digest = TDigest.from_array(data, delta=0.01)
-    torch_result = TDigestTorch.batch_from_arrays([data], delta=0.01, device='cpu')
+    rust_digest = TDigest.from_array(data_np, delta=0.01)
+    torch_result = TDigestTorch.batch_from_tensor(data_tensor, delta=0.01)
 
     count = torch_result.counts[0]
     torch_means = torch_result.means[0, :count]
@@ -67,19 +70,19 @@ def performance_comparison():
     print("Performance Comparison (CPU)")
     print("=" * 60)
 
-    np.random.seed(456)
+    torch.manual_seed(456)
     n_arrays = 100
     array_size = 10000
-    arrays = [np.random.randn(array_size).astype(np.float64) for _ in range(n_arrays)]
+    data = torch.randn(n_arrays, array_size, dtype=torch.float64)
 
-    print(f"\nProcessing {n_arrays} arrays of {array_size} elements each")
+    print(f"\nProcessing tensor of shape {list(data.shape)}")
 
     start = time.time()
-    rust_digests = [TDigest.from_array(arr, delta=0.01) for arr in arrays]
+    rust_digests = [TDigest.from_array(data[i].numpy(), delta=0.01) for i in range(n_arrays)]
     rust_time = time.time() - start
 
     start = time.time()
-    torch_result = TDigestTorch.batch_from_arrays(arrays, delta=0.01, device='cpu')
+    torch_result = TDigestTorch.batch_from_tensor(data, delta=0.01)
     torch_time = time.time() - start
 
     print(f"\nRust (sequential): {rust_time:.3f}s")
@@ -97,10 +100,10 @@ def quantile_example():
     print("Quantile Computation")
     print("=" * 60)
 
-    np.random.seed(789)
-    data = np.random.randn(20000).astype(np.float64)
+    torch.manual_seed(789)
+    data = torch.randn(1, 20000, dtype=torch.float64)
 
-    result = TDigestTorch.batch_from_arrays([data], delta=0.01, device='cpu')
+    result = TDigestTorch.batch_from_tensor(data, delta=0.01)
 
     count = result.counts[0]
     means = result.means[0, :count]
@@ -108,7 +111,7 @@ def quantile_example():
 
     digest = TDigest.from_means_weights(means, weights, delta=0.01)
 
-    print(f"\nComputed {count} centroids from {len(data)} points")
+    print(f"\nComputed {count} centroids from {data.shape[1]} points")
     print("\nQuantiles:")
     for q in [0.01, 0.25, 0.5, 0.75, 0.99]:
         value = digest.quantile(q)

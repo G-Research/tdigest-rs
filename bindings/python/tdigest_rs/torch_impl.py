@@ -168,54 +168,37 @@ class TDigestTorch:
         return means, weights, centroid_idx
 
     @classmethod
-    def batch_from_arrays(
+    def batch_from_tensor(
         cls,
-        arrays: List[np.ndarray],
+        data: torch.Tensor,
         delta: float = 0.01,
-        device: str = 'cpu',
         max_centroids: int = 500
     ) -> TDigestResult:
         """
-        Create T-Digests for a batch of arrays.
+        Create T-Digests for a batch of data.
 
         Args:
-            arrays: List of 1D numpy arrays (must all be same length)
+            data: 2D tensor of shape [batch_size, n]
             delta: Compression parameter (0 < delta <= 1)
-            device: 'cpu', 'cuda', 'cuda:0', etc.
             max_centroids: Maximum centroids per digest
 
         Returns:
-            TDigestResult with means, weights, and counts
+            TDigestResult with means, weights, and counts as numpy arrays
 
         Raises:
             ImportError: If torch not installed
-            ValueError: If arrays have different lengths or invalid delta
+            ValueError: If data is not 2D or invalid delta
         """
         _check_torch_available()
 
-        if not arrays:
-            return TDigestResult(
-                means=np.array([]),
-                weights=np.array([]),
-                counts=np.array([])
-            )
+        if data.ndim != 2:
+            raise ValueError(f"data must be 2D tensor, got shape {data.shape}")
 
         if delta <= 0 or delta > 1:
             raise ValueError(f"delta must be in (0, 1], got {delta}")
 
-        lengths = [len(arr) for arr in arrays]
-        if len(set(lengths)) > 1:
-            raise ValueError(
-                f"All arrays must have same length. Got lengths: {set(lengths)}"
-            )
-
-        batch_size = len(arrays)
-
-        data = torch.tensor(
-            np.array(arrays),
-            dtype=torch.float64,
-            device=device
-        )
+        batch_size = data.shape[0]
+        device = data.device
 
         sorted_data, _ = torch.sort(data, dim=1)
 
@@ -247,6 +230,53 @@ class TDigestTorch:
             counts=counts_batch.cpu().numpy()
         )
 
+    @classmethod
+    def batch_from_arrays(
+        cls,
+        arrays: List[np.ndarray],
+        delta: float = 0.01,
+        device: str = 'cpu',
+        max_centroids: int = 500
+    ) -> TDigestResult:
+        """
+        Create T-Digests for a batch of arrays (convenience wrapper).
+
+        Args:
+            arrays: List of 1D numpy arrays (must all be same length)
+            delta: Compression parameter (0 < delta <= 1)
+            device: 'cpu', 'cuda', 'cuda:0', etc.
+            max_centroids: Maximum centroids per digest
+
+        Returns:
+            TDigestResult with means, weights, and counts
+
+        Raises:
+            ImportError: If torch not installed
+            ValueError: If arrays have different lengths or invalid delta
+        """
+        _check_torch_available()
+
+        if not arrays:
+            return TDigestResult(
+                means=np.array([]),
+                weights=np.array([]),
+                counts=np.array([])
+            )
+
+        lengths = [len(arr) for arr in arrays]
+        if len(set(lengths)) > 1:
+            raise ValueError(
+                f"All arrays must have same length. Got lengths: {set(lengths)}"
+            )
+
+        data = torch.tensor(
+            np.array(arrays),
+            dtype=torch.float64,
+            device=device
+        )
+
+        return cls.batch_from_tensor(data, delta, max_centroids)
+
     @staticmethod
     def is_available() -> bool:
         """Check if CUDA GPU acceleration is available."""
@@ -266,13 +296,31 @@ class TDigestTorch:
             return 'cpu'
 
 
+def batch_from_tensor_torch(
+    data: torch.Tensor,
+    delta: float = 0.01,
+) -> TDigestResult:
+    """
+    Convenience function for batch T-Digest computation.
+
+    Args:
+        data: 2D tensor of shape [batch_size, n]
+        delta: Compression parameter
+
+    Returns:
+        TDigestResult
+    """
+    _check_torch_available()
+    return TDigestTorch.batch_from_tensor(data, delta)
+
+
 def batch_from_arrays_torch(
     arrays: List[np.ndarray],
     delta: float = 0.01,
     device: Optional[str] = None
 ) -> TDigestResult:
     """
-    Convenience function with automatic device selection.
+    Convenience function with automatic device selection (legacy API).
 
     Args:
         arrays: List of 1D numpy arrays
@@ -288,3 +336,11 @@ def batch_from_arrays_torch(
         device = TDigestTorch.get_device()
 
     return TDigestTorch.batch_from_arrays(arrays, delta, device)
+
+
+__all__ = [
+    'TDigestTorch',
+    'TDigestResult',
+    'batch_from_tensor_torch',
+    'batch_from_arrays_torch',
+]

@@ -2,8 +2,68 @@
 
 import pytest
 import numpy as np
+import torch
 from tdigest_rs import TDigest
-from tdigest_rs.torch_impl import TDigestTorch, batch_from_arrays_torch
+from tdigest_rs.torch_impl import TDigestTorch, batch_from_arrays_torch, batch_from_tensor_torch
+
+
+class TestTensorAPI:
+    """Test the new tensor-based API."""
+
+    def test_tensor_single(self):
+        data = torch.randn(1, 1000, dtype=torch.float64)
+
+        rust_digest = TDigest.from_array(data[0].numpy(), delta=0.01)
+        torch_result = TDigestTorch.batch_from_tensor(data, delta=0.01)
+
+        count = torch_result.counts[0]
+        torch_means = torch_result.means[0, :count]
+        torch_weights = torch_result.weights[0, :count]
+
+        assert len(rust_digest.means) == count
+        np.testing.assert_allclose(torch_means, rust_digest.means, rtol=1e-10, atol=1e-10)
+        np.testing.assert_array_equal(torch_weights.astype(np.uint32), rust_digest.weights)
+
+    def test_tensor_batch(self):
+        torch.manual_seed(42)
+        data = torch.randn(10, 5000, dtype=torch.float64)
+
+        rust_digests = [TDigest.from_array(data[i].numpy(), delta=0.01) for i in range(10)]
+        torch_result = TDigestTorch.batch_from_tensor(data, delta=0.01)
+
+        for i, rust_digest in enumerate(rust_digests):
+            count = torch_result.counts[i]
+            assert len(rust_digest.means) == count
+            np.testing.assert_allclose(
+                torch_result.means[i, :count],
+                rust_digest.means,
+                rtol=1e-10,
+                atol=1e-10
+            )
+
+    def test_tensor_device_inference(self):
+        data_cpu = torch.randn(5, 1000, dtype=torch.float64)
+        result_cpu = TDigestTorch.batch_from_tensor(data_cpu, delta=0.01)
+        assert result_cpu.counts.shape == (5,)
+
+        if torch.cuda.is_available():
+            data_gpu = data_cpu.cuda()
+            result_gpu = TDigestTorch.batch_from_tensor(data_gpu, delta=0.01)
+            np.testing.assert_array_equal(result_cpu.counts, result_gpu.counts)
+
+    def test_tensor_convenience_function(self):
+        data = torch.randn(5, 1000, dtype=torch.float64)
+        result = batch_from_tensor_torch(data, delta=0.01)
+        assert len(result.counts) == 5
+
+    def test_tensor_invalid_shape(self):
+        data_1d = torch.randn(1000, dtype=torch.float64)
+        with pytest.raises(ValueError, match="must be 2D"):
+            TDigestTorch.batch_from_tensor(data_1d, delta=0.01)
+
+        data_3d = torch.randn(10, 100, 100, dtype=torch.float64)
+        with pytest.raises(ValueError, match="must be 2D"):
+            TDigestTorch.batch_from_tensor(data_3d, delta=0.01)
 
 
 class TestCorrectness:
