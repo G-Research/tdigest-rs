@@ -190,22 +190,40 @@ class TDigestTorch:
         total_centroids = n_finite_centroids + has_neg_inf.long() + n_pos_inf.long()
         total_centroids = torch.min(total_centroids, torch.tensor(max_centroids, device=device, dtype=torch.long))
 
-        # Create temporary buffers for all possible centroids
-        all_means = torch.zeros(max_centroids, dtype=dtype, device=device)
-        all_weights = torch.zeros(max_centroids, dtype=dtype, device=device)
+        # Create temporary buffers - make them same size as input to avoid vmap issues
+        # Then we'll clip to max_centroids at the end
+        temp_size = n  # Same size as input data
+        temp_means = torch.zeros(temp_size, dtype=dtype, device=device)
+        temp_weights = torch.zeros(temp_size, dtype=dtype, device=device)
+
+        # Clamp centroid_ids to valid range
+        centroid_ids_clamped = torch.clamp(centroid_ids, 0, temp_size - 1)
 
         # Scatter finite values
         # Only scatter where is_finite is True
         masked_data = torch.where(is_finite, sorted_data, torch.tensor(0.0, dtype=dtype, device=device))
         masked_ones = torch.where(is_finite, torch.tensor(1.0, dtype=dtype, device=device), torch.tensor(0.0, dtype=dtype, device=device))
 
-        all_weights.scatter_add_(0, centroid_ids, masked_ones)
-        all_means.scatter_add_(0, centroid_ids, masked_data)
+        # Use scatter_add (out-of-place version for vmap compatibility)
+        temp_weights = temp_weights.scatter_add(0, centroid_ids_clamped, masked_ones)
+        temp_means = temp_means.scatter_add(0, centroid_ids_clamped, masked_data)
 
         # Compute means (avoid division by zero)
-        all_means = torch.where(all_weights > 0, all_means / all_weights, torch.tensor(0.0, dtype=dtype, device=device))
+        temp_means = torch.where(temp_weights > 0, temp_means / temp_weights, torch.tensor(0.0, dtype=dtype, device=device))
 
-        # Add -inf centroid if present
+        # Pad temp tensors to max_centroids if needed, or slice if too large
+        # Use functional padding that works regardless of size
+        if n < max_centroids:
+            # Need padding
+            pad_size = max_centroids - n
+            all_means = torch.cat([temp_means, torch.zeros(pad_size, dtype=dtype, device=device)])
+            all_weights = torch.cat([temp_weights, torch.zeros(pad_size, dtype=dtype, device=device)])
+        else:
+            # Just slice
+            all_means = temp_means[:max_centroids]
+            all_weights = temp_weights[:max_centroids]
+
+        # Add -inf centroid if present (overwrite index 0)
         all_means[0] = torch.where(has_neg_inf,
                                    torch.tensor(float('-inf'), dtype=dtype, device=device),
                                    all_means[0])
@@ -215,7 +233,7 @@ class TDigestTorch:
 
         # Add +inf centroid if present
         inf_idx = total_centroids - 1
-        inf_idx = torch.clamp(inf_idx, 0, max_centroids - 1)
+        inf_idx = torch.clamp(inf_idx, torch.tensor(0, device=device), torch.tensor(max_centroids - 1, device=device))
         all_means[inf_idx] = torch.where(n_pos_inf > 0,
                                          torch.tensor(float('inf'), dtype=dtype, device=device),
                                          all_means[inf_idx])
