@@ -51,6 +51,7 @@ class TDigestTorch:
     def _compute_q_limit(q: float, delta: float, n: int) -> float:
         """
         Compute clustering threshold matching Rust's log_q_limit function.
+        (Scalar version for CPU path)
         """
         if q <= 0:
             return 0.0
@@ -65,6 +66,119 @@ class TDigestTorch:
         q_limit = 1.0 / (1.0 + math.exp(-k * base_factor / delta))
 
         return q_limit
+
+    @staticmethod
+    def _compute_q_limit_torch(q: torch.Tensor, delta: float, n: int) -> torch.Tensor:
+        """
+        Compute clustering threshold using torch operations (for GPU).
+        """
+        if q <= 0:
+            return torch.tensor(0.0, dtype=q.dtype, device=q.device)
+        if q >= 1:
+            return torch.tensor(1.0, dtype=q.dtype, device=q.device)
+
+        n_over_delta = n / delta
+        base_factor = torch.log(torch.tensor(n_over_delta, dtype=q.dtype, device=q.device)) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
+        scale_factor = delta / base_factor
+
+        k = scale_factor * torch.log(q / (1.0 - q)) + 1.0
+        q_limit = 1.0 / (1.0 + torch.exp(-k * base_factor / delta))
+
+        return q_limit
+
+    @staticmethod
+    @torch.compile
+    def _cluster_single_digest_compiled(
+        sorted_data: torch.Tensor,
+        delta: float,
+        max_centroids: int
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        GPU-optimized clustering using torch.compile.
+        Keeps all data on GPU, uses pure torch operations.
+
+        Returns:
+            means, weights (padded to max_centroids), count (as tensor)
+        """
+        n = sorted_data.shape[0]
+        device = sorted_data.device
+        dtype = sorted_data.dtype
+
+        means = torch.zeros(max_centroids, device=device, dtype=dtype)
+        weights = torch.zeros(max_centroids, device=device, dtype=dtype)
+
+        if n == 0:
+            return means, weights, torch.tensor(0, device=device, dtype=torch.int64)
+
+        # Find infinity boundaries using vectorized operations
+        is_neg_inf = sorted_data == float('-inf')
+        is_pos_inf = sorted_data == float('inf')
+
+        start = int(is_neg_inf.sum()) if is_neg_inf.any() else 0
+        end = n - int(is_pos_inf.sum()) if is_pos_inf.any() else n
+
+        centroid_idx = 0
+
+        # Handle negative infinities
+        if start > 0:
+            means[centroid_idx] = float('-inf')
+            weights[centroid_idx] = float(start)
+            centroid_idx += 1
+
+        inf_count = n - end
+
+        # Process finite values
+        if end > start:
+            data_slice = sorted_data[start:end]
+            slice_len = end - start
+            total_weight = float(slice_len)
+
+            cumulative_weight = torch.tensor(0.0, dtype=dtype, device=device)
+            sigma_mean = data_slice[0]
+            sigma_weight = torch.tensor(1.0, dtype=dtype, device=device)
+
+            q = torch.tensor(0.0, dtype=dtype, device=device)
+            q_limit = TDigestTorch._compute_q_limit_torch(q, delta, slice_len)
+
+            for i in range(1, slice_len):
+                mu = data_slice[i]
+
+                # Skip NaN values
+                if torch.isnan(mu):
+                    continue
+
+                q = (cumulative_weight + sigma_weight + 1.0) / total_weight
+
+                if q <= q_limit:
+                    # Merge with current centroid
+                    sigma_mean = (sigma_mean * sigma_weight + mu) / (sigma_weight + 1.0)
+                    sigma_weight = sigma_weight + 1.0
+                else:
+                    # Create new centroid
+                    means[centroid_idx] = sigma_mean
+                    weights[centroid_idx] = sigma_weight
+                    centroid_idx += 1
+
+                    cumulative_weight = cumulative_weight + sigma_weight
+                    q_limit = TDigestTorch._compute_q_limit_torch(
+                        cumulative_weight / total_weight, delta, slice_len
+                    )
+                    sigma_mean = mu
+                    sigma_weight = torch.tensor(1.0, dtype=dtype, device=device)
+
+            # Flush final centroid
+            if not torch.isnan(sigma_mean):
+                means[centroid_idx] = sigma_mean
+                weights[centroid_idx] = sigma_weight
+                centroid_idx += 1
+
+        # Handle positive infinities
+        if inf_count > 0:
+            means[centroid_idx] = float('inf')
+            weights[centroid_idx] = float(inf_count)
+            centroid_idx += 1
+
+        return means, weights, torch.tensor(centroid_idx, device=device, dtype=torch.int64)
 
     @staticmethod
     def _cluster_single_digest(
@@ -172,7 +286,8 @@ class TDigestTorch:
         cls,
         data: torch.Tensor,
         delta: float = 0.01,
-        max_centroids: int = 500
+        max_centroids: int = 500,
+        use_compile: bool = True
     ) -> TDigestResult:
         """
         Create T-Digests for a batch of data.
@@ -181,6 +296,7 @@ class TDigestTorch:
             data: 2D tensor of shape [batch_size, n]
             delta: Compression parameter (0 < delta <= 1)
             max_centroids: Maximum centroids per digest
+            use_compile: Use torch.compile + vmap for GPU acceleration (default True)
 
         Returns:
             TDigestResult with means, weights, and counts as numpy arrays
@@ -202,27 +318,40 @@ class TDigestTorch:
 
         sorted_data, _ = torch.sort(data, dim=1)
 
-        means_batch = torch.zeros(
-            (batch_size, max_centroids),
-            dtype=torch.float64,
-            device=device
-        )
-        weights_batch = torch.zeros(
-            (batch_size, max_centroids),
-            dtype=torch.float64,
-            device=device
-        )
-        counts_batch = torch.zeros(batch_size, dtype=torch.int64, device=device)
+        if use_compile and device.type in ['cuda', 'mps']:
+            # GPU path: use vmap + torch.compile for parallelization
+            from torch import vmap
 
-        for i in range(batch_size):
-            means, weights, count = cls._cluster_single_digest(
-                sorted_data[i],
-                delta,
-                max_centroids
+            # Create a closure with fixed delta and max_centroids
+            def cluster_fn(sorted_row):
+                return cls._cluster_single_digest_compiled(sorted_row, delta, max_centroids)
+
+            # vmap over batch dimension (in_dims=0 means first dim is batch)
+            means_batch, weights_batch, counts_batch = vmap(cluster_fn)(sorted_data)
+
+        else:
+            # CPU path: sequential processing (compile doesn't help much on CPU)
+            means_batch = torch.zeros(
+                (batch_size, max_centroids),
+                dtype=torch.float64,
+                device=device
             )
-            means_batch[i] = means
-            weights_batch[i] = weights
-            counts_batch[i] = count
+            weights_batch = torch.zeros(
+                (batch_size, max_centroids),
+                dtype=torch.float64,
+                device=device
+            )
+            counts_batch = torch.zeros(batch_size, dtype=torch.int64, device=device)
+
+            for i in range(batch_size):
+                means, weights, count = cls._cluster_single_digest(
+                    sorted_data[i],
+                    delta,
+                    max_centroids
+                )
+                means_batch[i] = means
+                weights_batch[i] = weights
+                counts_batch[i] = count
 
         return TDigestResult(
             means=means_batch.cpu().numpy(),
