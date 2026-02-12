@@ -35,12 +35,12 @@ def benchmark_gpu():
     torch.manual_seed(42)
     data = torch.randn(batch_size, n_elements, dtype=torch.float64, device='cuda')
 
-    # Warmup (torch.compile needs to JIT compile on first run)
-    print(f"\nWarming up (torch.compile JIT compilation)...")
+    # Warmup (vmap needs to trace on first run)
+    print(f"\nWarming up (vmap tracing)...")
     warmup_start = time.time()
     _ = TDigestTorch.batch_from_tensor(data[:10], delta=delta, use_compile=True)
     warmup_time = time.time() - warmup_start
-    print(f"  Warmup time: {warmup_time:.2f}s (this is one-time JIT compilation cost)")
+    print(f"  Warmup time: {warmup_time:.2f}s (this is one-time tracing cost)")
 
     # Benchmark: Sequential CPU-like path (use_compile=False)
     print(f"\n{'─' * 70}")

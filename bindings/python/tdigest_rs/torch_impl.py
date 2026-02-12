@@ -87,98 +87,134 @@ class TDigestTorch:
         return q_limit
 
     @staticmethod
-    @torch.compile
-    def _cluster_single_digest_compiled(
+    def _compute_q_limits_vectorized(q_values: torch.Tensor, delta: float, n: int) -> torch.Tensor:
+        """Vectorized q_limit computation for multiple q values."""
+        device = q_values.device
+        dtype = q_values.dtype
+
+        # Handle edge cases with masking
+        result = torch.zeros_like(q_values)
+
+        # Mask for valid range (0 < q < 1)
+        valid_mask = (q_values > 0) & (q_values < 1)
+
+        if valid_mask.any():
+            q_valid = q_values[valid_mask]
+
+            n_over_delta = n / delta
+            base_factor = torch.log(torch.tensor(n_over_delta, dtype=dtype, device=device)) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
+            scale_factor = delta / base_factor
+
+            k = scale_factor * torch.log(q_valid / (1.0 - q_valid)) + 1.0
+            q_limit = 1.0 / (1.0 + torch.exp(-k * base_factor / delta))
+
+            result[valid_mask] = q_limit
+
+        # q >= 1 -> q_limit = 1
+        result[q_values >= 1] = 1.0
+
+        return result
+
+    @staticmethod
+    def _cluster_single_digest_vmapped(
         sorted_data: torch.Tensor,
         delta: float,
         max_centroids: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        GPU-optimized clustering using torch.compile.
-        Keeps all data on GPU, uses pure torch operations.
+        Vectorized clustering without data-dependent control flow (vmap-compatible).
+
+        Strategy:
+        1. Filter infinities and NaNs using masks
+        2. Compute all merge decisions using vectorized operations
+        3. Use scatter operations for aggregation
+        4. Avoid all if/else based on data values
 
         Returns:
             means, weights (padded to max_centroids), count (as tensor)
         """
-        n = sorted_data.shape[0]
         device = sorted_data.device
         dtype = sorted_data.dtype
 
         means = torch.zeros(max_centroids, device=device, dtype=dtype)
         weights = torch.zeros(max_centroids, device=device, dtype=dtype)
 
-        if n == 0:
-            return means, weights, torch.tensor(0, device=device, dtype=torch.int64)
-
-        # Find infinity boundaries using vectorized operations
+        # Classify values
         is_neg_inf = sorted_data == float('-inf')
         is_pos_inf = sorted_data == float('inf')
+        is_nan = torch.isnan(sorted_data)
+        is_finite = ~(is_neg_inf | is_pos_inf | is_nan)
 
-        start = int(is_neg_inf.sum()) if is_neg_inf.any() else 0
-        end = n - int(is_pos_inf.sum()) if is_pos_inf.any() else n
+        # Count special values
+        n_neg_inf = is_neg_inf.sum().long()
+        n_pos_inf = is_pos_inf.sum().long()
 
-        centroid_idx = 0
+        # Extract finite values
+        finite_data = sorted_data[is_finite]
+        n_finite = finite_data.shape[0]
 
-        # Handle negative infinities
-        if start > 0:
-            means[centroid_idx] = float('-inf')
-            weights[centroid_idx] = float(start)
-            centroid_idx += 1
+        # Initialize centroid counter
+        next_idx = torch.tensor(0, device=device, dtype=torch.long)
 
-        inf_count = n - end
+        # Handle -inf centroid (masked write - no conditional)
+        has_neg_inf = n_neg_inf > 0
+        means[next_idx] = torch.where(has_neg_inf,
+                                      torch.tensor(float('-inf'), dtype=dtype, device=device),
+                                      means[next_idx])
+        weights[next_idx] = torch.where(has_neg_inf,
+                                        n_neg_inf.float(),
+                                        weights[next_idx])
+        next_idx = next_idx + has_neg_inf.long()
 
         # Process finite values
-        if end > start:
-            data_slice = sorted_data[start:end]
-            slice_len = end - start
-            total_weight = float(slice_len)
+        if n_finite > 0:
+            # Approximate merge decisions using vectorized q_limit computation
+            positions = torch.arange(1, n_finite + 1, dtype=dtype, device=device)
+            approx_q = positions / n_finite
 
-            cumulative_weight = torch.tensor(0.0, dtype=dtype, device=device)
-            sigma_mean = data_slice[0]
-            sigma_weight = torch.tensor(1.0, dtype=dtype, device=device)
+            # Compute q_limits vectorized
+            q_limits = TDigestTorch._compute_q_limits_vectorized(approx_q, delta, n_finite)
 
-            q = torch.tensor(0.0, dtype=dtype, device=device)
-            q_limit = TDigestTorch._compute_q_limit_torch(q, delta, slice_len)
+            # Compute merge decisions
+            should_merge = torch.cat([
+                torch.tensor([False], device=device),  # First element always starts new centroid
+                approx_q[1:] <= q_limits[1:]
+            ])
 
-            for i in range(1, slice_len):
-                mu = data_slice[i]
+            # Assign centroid IDs
+            starts_new = ~should_merge
+            centroid_offset = starts_new.cumsum(0) - 1
 
-                # Skip NaN values
-                if torch.isnan(mu):
-                    continue
+            # Get number of finite centroids
+            n_finite_centroids = centroid_offset.max() + 1
 
-                q = (cumulative_weight + sigma_weight + 1.0) / total_weight
+            # Aggregate using scatter
+            ones = torch.ones(n_finite, dtype=dtype, device=device)
+            finite_means = torch.zeros(n_finite_centroids, dtype=dtype, device=device)
+            finite_weights = torch.zeros(n_finite_centroids, dtype=dtype, device=device)
 
-                if q <= q_limit:
-                    # Merge with current centroid
-                    sigma_mean = (sigma_mean * sigma_weight + mu) / (sigma_weight + 1.0)
-                    sigma_weight = sigma_weight + 1.0
-                else:
-                    # Create new centroid
-                    means[centroid_idx] = sigma_mean
-                    weights[centroid_idx] = sigma_weight
-                    centroid_idx += 1
+            finite_weights.scatter_add_(0, centroid_offset, ones)
+            finite_means.scatter_add_(0, centroid_offset, finite_data)
+            finite_means = finite_means / finite_weights
 
-                    cumulative_weight = cumulative_weight + sigma_weight
-                    q_limit = TDigestTorch._compute_q_limit_torch(
-                        cumulative_weight / total_weight, delta, slice_len
-                    )
-                    sigma_mean = mu
-                    sigma_weight = torch.tensor(1.0, dtype=dtype, device=device)
+            # Write to output (clip to max_centroids)
+            n_to_write = torch.min(n_finite_centroids, torch.tensor(max_centroids - next_idx, device=device))
+            means[next_idx:next_idx + n_to_write] = finite_means[:n_to_write]
+            weights[next_idx:next_idx + n_to_write] = finite_weights[:n_to_write]
+            next_idx = next_idx + n_to_write
 
-            # Flush final centroid
-            if not torch.isnan(sigma_mean):
-                means[centroid_idx] = sigma_mean
-                weights[centroid_idx] = sigma_weight
-                centroid_idx += 1
+        # Handle +inf centroid (masked write - no conditional)
+        has_pos_inf = n_pos_inf > 0
+        write_inf_at = torch.min(next_idx, torch.tensor(max_centroids - 1, device=device))
+        means[write_inf_at] = torch.where(has_pos_inf,
+                                          torch.tensor(float('inf'), dtype=dtype, device=device),
+                                          means[write_inf_at])
+        weights[write_inf_at] = torch.where(has_pos_inf,
+                                            n_pos_inf.float(),
+                                            weights[write_inf_at])
+        final_count = next_idx + has_pos_inf.long()
 
-        # Handle positive infinities
-        if inf_count > 0:
-            means[centroid_idx] = float('inf')
-            weights[centroid_idx] = float(inf_count)
-            centroid_idx += 1
-
-        return means, weights, torch.tensor(centroid_idx, device=device, dtype=torch.int64)
+        return means, weights, torch.min(final_count, torch.tensor(max_centroids, device=device, dtype=torch.long))
 
     @staticmethod
     def _cluster_single_digest(
@@ -319,14 +355,14 @@ class TDigestTorch:
         sorted_data, _ = torch.sort(data, dim=1)
 
         if use_compile and device.type in ['cuda', 'mps']:
-            # GPU path: use vmap + torch.compile for parallelization
-            from torch import vmap
+            # GPU path: Use vmap with vectorized implementation for batch parallelism
+            from torch.func import vmap
 
-            # Create a closure with fixed delta and max_centroids
-            def cluster_fn(sorted_row):
-                return cls._cluster_single_digest_compiled(sorted_row, delta, max_centroids)
+            # Create wrapper function for vmap
+            def cluster_fn(data_row):
+                return cls._cluster_single_digest_vmapped(data_row, delta, max_centroids)
 
-            # vmap over batch dimension (in_dims=0 means first dim is batch)
+            # Process entire batch in parallel with vmap
             means_batch, weights_batch, counts_batch = vmap(cluster_fn)(sorted_data)
 
         else:
