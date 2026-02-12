@@ -87,7 +87,7 @@ class TDigestTorch:
         return q_limit
 
     @staticmethod
-    def _compute_q_limits_vectorized(q_values: torch.Tensor, delta: float, n: int) -> torch.Tensor:
+    def _compute_q_limits_vectorized(q_values: torch.Tensor, delta: float, n: torch.Tensor) -> torch.Tensor:
         """Vectorized q_limit computation for multiple q values."""
         device = q_values.device
         dtype = q_values.dtype
@@ -98,20 +98,21 @@ class TDigestTorch:
         # Mask for valid range (0 < q < 1)
         valid_mask = (q_values > 0) & (q_values < 1)
 
-        if valid_mask.any():
-            q_valid = q_values[valid_mask]
+        # Work on full array with masking (no boolean indexing - vmap compatible)
+        n_float = n.float() if n.dtype != dtype else n
+        n_over_delta = n_float / delta
+        base_factor = torch.log(n_over_delta) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
+        scale_factor = delta / base_factor
 
-            n_over_delta = n / delta
-            base_factor = torch.log(torch.tensor(n_over_delta, dtype=dtype, device=device)) * SCALE_BASE_MULTIPLIER + SCALE_BASE_OFFSET
-            scale_factor = delta / base_factor
+        # Compute for all values, will mask later
+        # Clamp q_values to avoid log(0) or log(negative)
+        q_safe = torch.clamp(q_values, 1e-10, 1.0 - 1e-10)
+        k = scale_factor * torch.log(q_safe / (1.0 - q_safe)) + 1.0
+        q_limit_all = 1.0 / (1.0 + torch.exp(-k * base_factor / delta))
 
-            k = scale_factor * torch.log(q_valid / (1.0 - q_valid)) + 1.0
-            q_limit = 1.0 / (1.0 + torch.exp(-k * base_factor / delta))
-
-            result[valid_mask] = q_limit
-
-        # q >= 1 -> q_limit = 1
-        result[q_values >= 1] = 1.0
+        # Apply masks
+        result = torch.where(valid_mask, q_limit_all, result)
+        result = torch.where(q_values >= 1.0, torch.ones_like(result), result)
 
         return result
 
@@ -163,7 +164,8 @@ class TDigestTorch:
         approx_q = positions / n_finite_float
 
         # Compute q_limits vectorized (for all positions, but only finite ones will be used)
-        q_limits = TDigestTorch._compute_q_limits_vectorized(approx_q, delta, n_finite.item())
+        # Pass n_finite as tensor, not .item()
+        q_limits = TDigestTorch._compute_q_limits_vectorized(approx_q, delta, n_finite)
 
         # Compute merge decisions for finite values
         # First finite value always starts new centroid
