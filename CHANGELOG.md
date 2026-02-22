@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 - Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
 - Python API removed legacy `delta` configuration in favor of `max_size` + `scale` and keeps strict non-finite validation.
 - Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
+- Compressor Stage 4 cap strategy now uses a second k-limit merge with binary-searched `d'` (same scale-family geometry as Stage 3) instead of always using equal-weight bucketization.
 - CI matrix and dependency setup were adjusted for portability:
   - removed unsupported `macos-13` jobs from Rust/Python workflows,
   - fixed Python CI mypy config discovery path,
@@ -18,6 +19,7 @@ All notable changes to this project are documented in this file.
 - Moved `jemalloc-ctl` to Linux GNU-only dev dependencies to prevent Windows Rust test failures.
 - Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
 - Coherence test native-library lookup now normalizes `darwin` to `macos` for Java native path compatibility on macOS runners.
+- Updated `tdigest_design.md` and quality-regression baselines to reflect the intentional Stage 4 algorithm change.
 
 ### Added
 - Python compatibility methods/properties:
@@ -27,6 +29,7 @@ All notable changes to this project are documented in this file.
   - `means`, `weights`, `__len__`
   - `to_dict()` / `from_dict()` with new schema and legacy schema support
 - Rust core + Python binding `trimmed_mean(lower, upper)`.
+- Stage 4 unit coverage for cap/weight/order invariants under the new second-pass k-limit cap behavior.
 
 ## [0.2.4] - 2026-02-16
 

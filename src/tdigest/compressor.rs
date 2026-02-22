@@ -6,7 +6,8 @@
 //! 2. **Slice**: partition `(left edges, interior, right edges)` and compute interior capacity
 //!    from the active [`SingletonPolicy`].
 //! 3. **Merge (k-limit)**: greedily merge interior under Δk ≤ 1 for the selected [`ScaleFamily`].
-//! 4. **Cap**: if interior exceeds its budget, apply order-preserving equal-weight bucketization.
+//! 4. **Cap**: if interior exceeds its budget, run a second k-limit merge with tuned `d'`
+//!    (via binary search) to honor the cap while preserving scale-family geometry.
 //! 5. **Assemble**: concatenate `left + core + right`.
 //! 6. **Post**: optional policy finalization (e.g., total-cap for `Use`).
 //!
@@ -25,6 +26,9 @@ use crate::tdigest::singleton_policy::SingletonPolicy;
 use crate::tdigest::TDigest;
 
 const KLIMIT_TOL: f64 = 1e-12;
+const CAP_SEARCH_ITERS: usize = 28;
+const CAP_FALLBACK_ITERS: usize = 12;
+const CAP_SEARCH_LO: f64 = 1e-6;
 
 /* =============================================================================
  * Internal utilities
@@ -85,7 +89,7 @@ fn build_centroid<F: FloatLike + FloatCore>(
 /// 1) Normalize → `normalize_stream`
 /// 2) Slice     → policy-dependent edge/interior partition
 /// 3) Merge     → `klimit_merge`
-/// 4) Cap       → `cap_core` / `bucketize_equal_weight`
+/// 4) Cap       → `cap_core` / `cap_with_second_klimit`
 /// 5) Assemble  → `assemble_with_edges`
 /// 6) Post      → policy-specific finalization
 pub(crate) fn compress_into<F, I>(
@@ -123,9 +127,9 @@ where
     let core = klimit_merge::<F>(slices.interior, d, family);
 
     // -- 4) Cap ---------------------------------------------------------------
-    // Equal-weight bucketization if the interior exceeds its budget.
-    // We may emit fewer than N to avoid tiny last buckets, which improves tail stability.
-    let core_capped = cap_core::<F>(core, slices.caps.core_cap);
+    // Second k-limit cap pass if the interior exceeds its budget.
+    // Fallback to equal-weight bucketization remains as a safety net in `cap_core`.
+    let core_capped = cap_core::<F>(core, slices.caps.core_cap, d, family);
 
     // -- 5) Assemble ----------------------------------------------------------
     let assembled = assemble_with_edges::<F>(slices.left, core_capped, slices.right);
@@ -330,18 +334,74 @@ fn klimit_merge<F: FloatLike + FloatCore>(
     clusters
 }
 
-/// **(4) Cap** — reduce to at most `core_cap` by equal-weight grouping.
+/// **(4) Cap** — reduce to at most `core_cap` by running a second k-limit pass.
 ///
-/// The last group may be omitted if it would be too small; this avoids micro-weights that
-/// degrade numerical stability near the tails.
-fn cap_core<F: FloatLike + FloatCore>(core: Vec<Centroid<F>>, core_cap: usize) -> Vec<Centroid<F>> {
+/// We binary-search `d'` in `(0, d]` and choose the largest value that yields `<= core_cap`
+/// centroids under the same k-limit merge rule used by Stage 3.
+///
+/// If plateau behavior prevents strict cap convergence, we tighten `d'` a few times and
+/// finally fall back to equal-weight bucketization as a last-resort safety net.
+fn cap_core<F: FloatLike + FloatCore>(
+    core: Vec<Centroid<F>>,
+    core_cap: usize,
+    d: f64,
+    family: ScaleFamily,
+) -> Vec<Centroid<F>> {
     if core.len() <= core_cap {
         return core;
     }
     if core_cap == 0 {
         return Vec::new();
     }
-    bucketize_equal_weight(&core, core_cap)
+    cap_with_second_klimit(&core, core_cap, d, family)
+}
+
+/// Stage-4 cap strategy: second k-limit merge with tuned `d'`.
+fn cap_with_second_klimit<F: FloatLike + FloatCore>(
+    core: &[Centroid<F>],
+    core_cap: usize,
+    d: f64,
+    family: ScaleFamily,
+) -> Vec<Centroid<F>> {
+    debug_assert!(core_cap > 0);
+    if core.len() <= core_cap {
+        return core.to_vec();
+    }
+
+    // Find the largest d' that satisfies the cap to preserve as much detail as possible.
+    let mut lo = CAP_SEARCH_LO;
+    let mut hi = d.max(CAP_SEARCH_LO);
+    let mut best = lo;
+    let mut found = false;
+
+    for _ in 0..CAP_SEARCH_ITERS {
+        let mid = 0.5 * (lo + hi);
+        let len_mid = klimit_merge(core, mid, family).len();
+        if len_mid <= core_cap {
+            found = true;
+            best = mid;
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+
+    let mut out = klimit_merge(core, if found { best } else { CAP_SEARCH_LO }, family);
+
+    // Guard against rare non-monotone/plateau effects.
+    let mut guard = 0usize;
+    let mut tuned = if found { best } else { CAP_SEARCH_LO };
+    while out.len() > core_cap && guard < CAP_FALLBACK_ITERS {
+        tuned *= 0.95;
+        out = klimit_merge(core, tuned, family);
+        guard += 1;
+    }
+
+    if out.len() > core_cap {
+        return bucketize_equal_weight(core, core_cap);
+    }
+
+    out
 }
 
 /// **(4) Cap** — order-preserving equal-weight bucketization into `buckets` groups.
@@ -570,6 +630,22 @@ mod tests {
         ));
         assert!(approx(out[0].weight_f64(), 4.0, 1e-12));
         assert!(!out[0].is_singleton(), "collapse yields mixed centroid");
+    }
+
+    #[test]
+    fn cap_core_second_klimit_respects_cap_and_preserves_weight_order() {
+        let core: Vec<_> = (0..200).map(|i| c::<Fp>(i as f64, 1.0, true)).collect();
+        let out = super::cap_core(core.clone(), 32, 1000.0, ScaleFamily::K2);
+
+        assert!(out.len() <= 32, "cap must be respected");
+
+        let w_in: f64 = core.iter().map(|x| x.weight_f64()).sum();
+        let w_out: f64 = out.iter().map(|x| x.weight_f64()).sum();
+        assert!(approx(w_in, w_out, 1e-12), "weight preserved");
+
+        for w in out.windows(2) {
+            assert!(w[0].mean_f64() <= w[1].mean_f64(), "means remain ordered");
+        }
     }
 
     // ---------- k-limit merge core ----------

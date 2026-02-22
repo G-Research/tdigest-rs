@@ -166,13 +166,17 @@ Cluster kind emission:
 
 ### 4.4 Stage 4: cap
 
-If interior count exceeds `core_cap`, run `bucketize_equal_weight`:
-1. Compute `target = total_weight / buckets`.
-2. Sweep centroids in order, accumulating weighted stats.
-3. Emit a mixed centroid when accumulated weight reaches target.
-4. Emit trailing remainder if non-empty and bucket budget remains.
+If interior count exceeds `core_cap`, run a second k-limit merge on the Stage-3 output:
+1. Keep scale family fixed (`K1`/`K2`/`K3`/`Quad`).
+2. Binary-search a smaller `d'` in `(0, d]` where `d` is the configured `max_size`.
+3. Pick the largest `d'` such that `klimit_merge(..., d')` yields `<= core_cap`.
+4. Use that result as the capped interior.
 
-This is order-preserving and weight-preserving (up to floating roundoff).
+This keeps Stage 4 aligned with Stage 3 geometry (same `q_to_k` family + `Δk<=1` rule), while still enforcing the cap.
+
+Safety fallback:
+- If rare plateau behavior prevents converging under cap, Stage 4 tightens `d'` further for a bounded number of retries.
+- If still over cap, it falls back to order-preserving equal-weight bucketization as a last-resort guard.
 
 ### 4.5 Stage 5: assemble
 
