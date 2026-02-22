@@ -9,6 +9,12 @@ All notable changes to this project are documented in this file.
 - Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
 - Python API removed legacy `delta` configuration in favor of `max_size` + `scale` and keeps strict non-finite validation.
 - Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
+- CI matrix and dependency setup were adjusted for portability:
+  - removed unsupported `macos-13` jobs from Rust/Python workflows,
+  - fixed Python CI mypy config discovery path,
+  - removed `patchelf` extras from default Python build/dev dependencies to avoid Windows sync failures.
+- Moved `jemalloc-ctl` to Linux GNU-only dev dependencies to prevent Windows Rust test failures.
+- Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
 
 ### Added
 - Python compatibility methods/properties:

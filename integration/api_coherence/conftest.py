@@ -66,14 +66,17 @@ def paths() -> Paths:
     root = Path(__file__).resolve().parents[2]
     profile = os.environ.get("PROFILE", "dev")
     cargo_dir = "release" if profile == "release" else "debug"
+    is_windows = platform.system().lower().startswith("win")
 
     # CLI binary (adjust name if your target differs)
-    cli_bin = root / "target" / cargo_dir / "tdigest"
+    cli_name = "tdigest.exe" if is_windows else "tdigest"
+    cli_bin = root / "target" / cargo_dir / cli_name
 
     # Java bits
     java_src_dir = root / "bindings" / "java"
-    gradlew = java_src_dir / "gradlew"
-    if not gradlew.exists() or not os.access(gradlew, os.X_OK):
+    gradlew_name = "gradlew.bat" if is_windows else "gradlew"
+    gradlew = java_src_dir / gradlew_name
+    if not gradlew.exists() or (not is_windows and not os.access(gradlew, os.X_OK)):
         raise AssertionError(f"Gradle wrapper not found or not executable: {gradlew}")
 
     classes_dir = java_src_dir / "build" / "classes" / "java" / "main"
@@ -100,7 +103,12 @@ def paths() -> Paths:
             ) from e
 
     # Where the native libs land (wrapper task that embeds natives)
-    sys_tag = f"{platform.system().lower()}-{platform.machine()}"
+    arch = platform.machine().lower()
+    if arch in ("x86_64", "amd64"):
+        arch = "x86_64"
+    elif arch in ("aarch64", "arm64"):
+        arch = "aarch64"
+    sys_tag = f"{platform.system().lower()}-{arch}"
     native_dirs = [
         java_src_dir / "build" / "resources" / "main" / "META-INF" / "native" / sys_tag,
         java_src_dir
@@ -111,7 +119,7 @@ def paths() -> Paths:
         / sys_tag,
     ]
 
-    classpath_sep = ";" if platform.system().lower().startswith("win") else ":"
+    classpath_sep = ";" if is_windows else ":"
 
     return Paths(
         root=root,

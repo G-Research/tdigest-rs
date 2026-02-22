@@ -50,8 +50,8 @@ serde          = { version = "1.0.228", features = ["derive"] }
 serde_json     = "1.0.145"
 crc32fast      = "1.4.2"
 
-# jemalloc on Linux only (safer TLS flag for some distros)
-[target.'cfg(target_os = "linux")'.dependencies]
+# jemalloc on Linux GNU only (safer TLS flag for some distros)
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
 jemallocator = { version = "0.5", features = ["disable_initial_exec_tls"] }
 
 [dev-dependencies]
@@ -60,12 +60,14 @@ criterion     = "0.5"
 bytesize      = "1"
 libc          = "0.2"
 ctor          = "0.2"
-jemalloc-ctl  = "0.5"
 anyhow        = "1.0"
 assert_fs     = "1"
 predicates    = "3"
 assert_cmd    = "2"
 tempfile      = "3"
+
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dev-dependencies]
+jemalloc-ctl  = "0.5"
 
 
 [[bin]]

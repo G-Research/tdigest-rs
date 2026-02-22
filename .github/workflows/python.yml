@@ -31,14 +31,14 @@ jobs:
         run: |
           uv run --project bindings/python ruff check bindings/python integration
           uv run --project bindings/python ruff format --check bindings/python integration
-          uv run --project bindings/python mypy bindings/python/tdigest_rs
+          uv run --project bindings/python mypy --config-file bindings/python/pyproject.toml bindings/python/tdigest_rs
 
   test:
     name: Test
     strategy:
       matrix:
         python-version: ["3.12"]
-        runner: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        runner: [ubuntu-latest, macos-14, windows-latest]
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
@@ -73,8 +73,6 @@ jobs:
             target: aarch64-unknown-linux-musl
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-          - runner: macos-13
-            target: x86_64-apple-darwin
           - runner: macos-14
             target: aarch64-apple-darwin
           - runner: windows-latest

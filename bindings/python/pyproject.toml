@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin[patchelf,zig]>=1.9.5,<2.0"]
+requires = ["maturin>=1.9.5,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -30,7 +30,7 @@ dev = [
   "pytest>=8.4.2",
   "ruff>=0.13.3",
   "pre-commit>=4.3.0",
-  "maturin[patchelf,zig]>=1.9.5",
+  "maturin>=1.9.5",
   "numpy>=2.3.3",
   "mypy>=1.18.2",
 ]
