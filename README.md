@@ -1,127 +1,148 @@
-# TDigest-rs
+# tdigest-rs
+T-Digest provides a mergeable summary of a distribution, enabling approximate quantiles and CDF with strong tail accuracy.
+`tdigest-rs` ships one Rust core with Rust, Python, Polars, and Java surfaces.
 
-<a href="https://pypi.org/project/tdigest-rs/">
-  <img src="https://img.shields.io/pypi/v/tdigest-rs.svg" alt="PyPi Latest Release"/>
-</a>
+## ✨ Features
+- 🦀 Single Rust core shared across Rust, Polars, Python, and Java.
+- 🚀 Mergeable digests for large and streaming data with fast union and consistent accuracy.
+- 🔁 Cross-surface coherence: consistent, verified behavior across all bindings.
+- ⚡ Quantile, CDF, and median with optimized evaluation loops using half-weight bracketing and singleton-aware interpolation.
+- 🧠 Heap-stream k-way digest merge in Rust core for lower peak memory on large digest unions.
+- 🧵 Streaming two-way raw-ingest merge path in Rust core (centroids + values) to avoid extra merge buffers.
+- 🧊 TDigest precision as `f64` or `f32`, with `auto` precision selection where supported.
+- ⚖️ Weighted ingest across Rust/Python/Polars/Java (`add_weighted`, `add_weighted_values`, Java weighted adds).
+- 🔄 Explicit precision casting across surfaces (`cast_precision` / `castPrecision`).
+- 📦 TDIG v3 wire default (flags + header length + precision code + checksum), with v1/v2 decode compatibility.
+- 🧭 Explicit wire-version encode controls (`to_bytes(version=1|2|3)`, `toBytes(version)`).
+- 🖥️ Rust CLI subcommands (`build`, `quantile`, `cdf`, `median`) with `text|csv|json|ndjson` ingestion.
+- 🎚️ Scale families: `Quad`, `K1`, `K2`, `K3`.
+- 🔩 Singleton handling policy: edge-precision (`keep N`), respect singletons, or uniform merge.
 
-Simple Python package to compute TDigests, implemented in Rust.
+## Examples
 
-## Introduction
-
-TDigest-rs is a Python library with a Rust backend that implements the T-Digest algorithm, enhancing the estimation of quantiles in streaming data. For an in-depth exploration of the T-Digest algorithm, refer to [Ted Dunning and Otmar Ertl's paper](https://arxiv.org/abs/1902.04023) and the [G-Research blog post](https://www.gresearch.com/blog/article/approximate-percentiles-with-t-digests/).
-
-
-## Usage
-
-```shell
-pip install tdigest-rs
-```
-
-The library contains a single ``TDigest`` class.
-
-### Creating a TDigest object
-
+**Python**
 ```python
+import tdigest_rs as td
 
-from tdigest_rs import TDigest
-
-# Fit a TDigest from a numpy array (float32 or float64)
-arr = np.random.randn(1000)
-tdigest = TDigest.from_array(arr=arr, delta=100.0)  # delta is optional and defaults to 300.0
-print(tdigest.means, tdigest.weights)
-
-# Create directly from means and weights arrays
-vals = np.random.randn(1000).astype(np.float32)
-weights = np.ones(1000).astype(np.uint32)
-tdigest = TDigest.from_means_weights(arr=vals, weights=weights)
+d = td.TDigest.from_array([0, 1, 2, 3], max_size=100, scale="k2")
+print("p50 =", d.quantile(0.5))
+print("cdf =", d.cdf([0.0, 1.5, 3.0]))
+print("trimmed_mean =", d.trimmed_mean(0.05, 0.95))
 ```
 
-### Computing quantiles
-
+**Polars**
 ```python
+import polars as pl
+from tdigest_rs import tdigest, quantile
 
-# Compute a quantile
-tdigest.quantile(0.1)
-
-# Compute median
-tdigest.median()
-
-# Compute trimmed mean
-tdigest.trimmed_mean(lower=0.05, upper=0.95)
+out = (
+    pl.DataFrame({"g": ["a"] * 5, "x": [0, 1, 2, 3, 4]})
+    .lazy()
+    .group_by("g")
+    .agg(tdigest("x", max_size=100, scale="k2").alias("td"))
+    .select(quantile("td", 0.5))
+    .collect()
+)
+print(out)
 ```
 
-### Merging TDigests
-
-```python
-
-arr1 = np.random.randn(1000)
-arr2 = np.ones(1000)
-digest1 = TDigest.from_array(arr=arr1)
-digest2 = TDigest.from_array(arr=arr2)
-
-merged_digest = digest1.merge(digest2, delta=100.0)  # delta again defaults to 300.0
-```
-
-### Updating TDigests
-
-```python
-arr = np.random.randn(1000)
-digest = TDigest.from_array(arr=arr1)
-
-# Buffer data points before updating
-buffer = np.random.randn(1)
-digest = digest.update(buffer, delta=300.0, merge_delta=100.0)
-```
-
-### Serialising TDigests
-
-The ``TDigest`` object can be converted to a dictionary and JSON-serialised and is also pickleable.
-
-```python
-
-# Convert and load to/from a python dict
-d = tdigest.to_dict()
-loaded_digest = TDigest.from_dict(d)
-
-# Pickle a digest
-import pickle
-
-pickle.dumps(tdigest)
-```
-
-
-## Development workflow
-
+**Rust CLI**
 ```bash
-pip install hatch
+# 1) Load numbers from CSV and save a digest
+# numbers.csv
+# value
+# 0
+# 1
+# 2
+# 3
+target/release/tdigest build \
+  --input numbers.csv \
+  --input-format csv \
+  --input-column value \
+  --to-digest model.tdig
 
-cd bindings/python
-
-# Run linters
-hatch run dev:lint
-
-# Run tests
-hatch run dev:test
-
-# Run benchmark
-hatch run dev:benchmark
-
-# Format code
-hatch run dev:format
+# 2) Read the digest and query quantiles
+target/release/tdigest quantile \
+  --from-digest model.tdig \
+  --p 0.5,0.9,0.99 \
+  --no-header
 ```
 
-## Contributing
+**Java (AutoCloseable)**
+```java
+import com.gresearch.tdigest.TDigest;
+import com.gresearch.tdigest.TDigest.Precision;
+import com.gresearch.tdigest.TDigest.Scale;
+import com.gresearch.tdigest.TDigest.SingletonPolicy;
 
-Please read our [contributing](https://github.com/G-Research/tdigest-rs/blob/main/CONTRIBUTING.md) guide and [code of conduct](https://github.com/G-Research/tdigest-rs/blob/main/CODE_OF_CONDUCT.md) if you'd like to contribute to the project.
+public class Example {
+  public static void main(String[] args) {
+    try (TDigest digest = TDigest.builder()
+        .maxSize(100)
+        .scale(Scale.K2)
+        .singletonPolicy(SingletonPolicy.USE)
+        .precision(Precision.F64)
+        .build(new double[]{0, 1, 2, 3})) {
+      double p50 = digest.quantile(0.5);
+      double[] cdf = digest.cdf(new double[]{0.0, 1.5, 3.0});
+      System.out.println(p50 + " " + cdf.length);
+    }
+  }
+}
+```
 
-## Community Guidelines
+## Migration notes (0.x -> 1.0.0)
+- `delta` arguments are removed. Use `max_size` and `scale` instead.
+- Python `TDigest` keeps compatibility helpers:
+  - `from_means_weights(...)`
+  - `update(...)` (returns a new digest)
+  - `merge(...)` (returns a new digest)
+  - `to_dict()` / `from_dict()` (new schema plus legacy dict support)
+  - `means`, `weights`, `__len__`
+- Validation is strict: non-finite training values (`NaN`, `+/-inf`) are rejected.
 
-Please read our [code of conduct](https://github.com/G-Research/tdigest-rs/blob/main/CODE_OF_CONDUCT.md) before participating in or contributing to this project.
+## Project layout
+```text
+├── src/                                  # Rust core, CLI, algorithm modules
+│   ├── bin/                              # tdigest CLI
+│   └── tdigest/                          # Core T-Digest implementation
+├── bindings/
+│   ├── python/                           # Python package + tests
+│   └── java/                             # Java API (Gradle) + JNI bridge
+├── integration/
+│   └── api_coherence/                    # Cross-surface contract tests
+├── crates/
+│   └── testdata/                         # Fixtures
+└── dist/                                 # Built artifacts after release
+```
 
-## Security
+## Quick Development Start
+```bash
+make setup
+make build
+make test
+```
 
-Please see our [security policy](https://github.com/G-Research/tdigest-rs/blob/main/SECURITY.md) for details on reporting security vulnerabilities.
+## Publishing
+- Publishing and release workflows are documented in `PUBLISH.md`.
+
+## Versions and compatibility
+- Rust: stable (edition 2021)
+- Python: CPython 3.12 (built with maturin)
+- Polars: 1.x line (Python)
+
+## Changelog
+- See `CHANGELOG.md`.
+
+## Future improvements
+- Allow scaling of weights and guard against centroid weight overflow.
+- Auto suggest a scaling function based on distribution.
+
+## Community
+- Contributing guide: `CONTRIBUTING.md`
+- Code of conduct: `CODE_OF_CONDUCT.md`
+- Security policy: `SECURITY.md`
+- Issues: https://github.com/G-Research/tdigest-rs/issues
 
 ## License
-
-TDigest-rs is licensed under the [Apache Software License 2.0 (Apache-2.0)](https://github.com/G-Research/tdigest-rs/blob/main/LICENSE)
+- Apache-2.0

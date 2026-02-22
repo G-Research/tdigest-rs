@@ -52,7 +52,7 @@ jobs:
           echo "::group::Updating version to $version"
           cargo install cargo-edit
           cargo set-version $version
-          git add Cargo.toml Cargo.lock bindings/python/Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "Release $version"
           git push
           echo "::endgroup::"
