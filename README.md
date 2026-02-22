@@ -91,7 +91,7 @@ public class Example {
 }
 ```
 
-## Migration notes (0.x -> 1.0.0)
+## Migration notes (0.x -> 2.0.0)
 - `delta` arguments are removed. Use `max_size` and `scale` instead.
 - Python `TDigest` keeps compatibility helpers:
   - `from_means_weights(...)`

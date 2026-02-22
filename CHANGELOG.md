@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 - Snapshot overwrite of implementation to the unified Rust core + Python/Polars/CLI/Java/JNI stack.
+- Project version target updated from `1.0.0` to `2.0.0` to avoid collision with pre-existing `1.0.x` releases.
 - Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
 - Python API removed legacy `delta` configuration in favor of `max_size` + `scale` and keeps strict non-finite validation.
 - Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
