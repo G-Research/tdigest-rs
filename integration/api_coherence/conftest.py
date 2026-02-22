@@ -108,7 +108,10 @@ def paths() -> Paths:
         arch = "x86_64"
     elif arch in ("aarch64", "arm64"):
         arch = "aarch64"
-    sys_tag = f"{platform.system().lower()}-{arch}"
+    os_tag = platform.system().lower()
+    if os_tag == "darwin":
+        os_tag = "macos"
+    sys_tag = f"{os_tag}-{arch}"
     native_dirs = [
         java_src_dir / "build" / "resources" / "main" / "META-INF" / "native" / sys_tag,
         java_src_dir

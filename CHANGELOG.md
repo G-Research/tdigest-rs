@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 - Python CI test jobs now prebuild integration-test artifacts (`target/debug/tdigest` and Gradle `classes` with bundled natives) before running pytest.
 - Moved `jemalloc-ctl` to Linux GNU-only dev dependencies to prevent Windows Rust test failures.
 - Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
+- Coherence test native-library lookup now normalizes `darwin` to `macos` for Java native path compatibility on macOS runners.
 
 ### Added
 - Python compatibility methods/properties:
