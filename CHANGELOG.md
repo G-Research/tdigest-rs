@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
   - removed unsupported `macos-13` jobs from Rust/Python workflows,
   - fixed Python CI mypy config discovery path,
   - removed `patchelf` extras from default Python build/dev dependencies to avoid Windows sync failures.
+- Python CI test jobs now prebuild integration-test artifacts (`target/debug/tdigest` and Gradle `classes` with bundled natives) before running pytest.
 - Moved `jemalloc-ctl` to Linux GNU-only dev dependencies to prevent Windows Rust test failures.
 - Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
 

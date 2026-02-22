@@ -53,10 +53,23 @@ jobs:
         uses: astral-sh/setup-uv@v5
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
       - name: Sync Python dependencies
         run: uv sync --all-groups --project bindings/python
       - name: Build Python extension
         run: uv run --project bindings/python maturin develop -F python
+      - name: Build Rust CLI binary for integration tests
+        run: cargo build --bin tdigest
+      - name: Build Java classes/native for integration tests (Unix)
+        if: runner.os != 'Windows'
+        run: ./bindings/java/gradlew --no-daemon --console=plain -p bindings/java classes
+      - name: Build Java classes/native for integration tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\bindings\java\gradlew.bat --no-daemon --console=plain -p bindings/java classes
       - name: Test
         run: uv run --project bindings/python pytest -q bindings/python/tests integration/api_coherence
 
