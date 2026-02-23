@@ -6,6 +6,68 @@ import pytest
 from tdigest_rs import ScaleFamily, SingletonPolicy, TDigest
 
 
+def _old_log_scale(q: float, delta: float, n: int) -> float:
+    if q <= 0.0:
+        return float("-inf")
+    if q >= 1.0:
+        return float("inf")
+    factor = delta / (4.0 * math.log(n / delta) + 24.0)
+    return factor * math.log(q / (1.0 - q))
+
+
+def _old_inverse_log_scale(k: float, delta: float, n: int) -> float:
+    if math.isinf(k):
+        return 0.0 if k < 0.0 else 1.0
+    factor = (4.0 * math.log(n / delta) + 24.0) / delta
+    return 1.0 / (1.0 + math.exp(-k * factor))
+
+
+def _old_log_q_limit(q0: float, delta: float, n: int) -> float:
+    return _old_inverse_log_scale(_old_log_scale(q0, delta, n) + 1.0, delta, n)
+
+
+def _old_cluster_count(values: np.ndarray, delta: float) -> int:
+    values = np.sort(values.astype(np.float64, copy=False))
+    n = len(values)
+    if n == 0:
+        return 0
+
+    weights = np.ones(n, dtype=np.float64)
+    return _old_cluster_count_weighted(values, weights, delta)
+
+
+def _old_cluster_count_weighted(means: np.ndarray, weights: np.ndarray, delta: float) -> int:
+    means = np.asarray(means, dtype=np.float64)
+    weights = np.asarray(weights, dtype=np.float64)
+    order = np.argsort(means, kind="mergesort")
+    means = means[order]
+    weights = weights[order]
+
+    n = len(means)
+    if n == 0:
+        return 0
+
+    total_weight = float(np.sum(weights))
+    cumulative_weight = 0.0
+    sigma_weight = float(weights[0])
+    q_limit = _old_log_q_limit(0.0, delta, n)
+    count = 0
+
+    for w in weights[1:]:
+        w = float(w)
+        q = (cumulative_weight + sigma_weight + w) / total_weight
+        if q <= q_limit:
+            sigma_weight += w
+        else:
+            count += 1
+            cumulative_weight += sigma_weight
+            q_limit = _old_log_q_limit(cumulative_weight / total_weight, delta, n)
+            sigma_weight = w
+
+    count += 1
+    return count
+
+
 class TestPythonApiSmoke:
     def test_build_and_query_smoke(self):
         d = TDigest.from_array([0.0, 1.0, 2.0, 3.0], max_size=64, scale=ScaleFamily.K2)
@@ -190,27 +252,42 @@ class TestPythonApiValidation:
         with pytest.raises(ValueError):
             d.trimmed_mean(0.8, 0.2)
 
-    def test_delta_constructor_argument_is_supported(self):
-        data = np.linspace(-5.0, 5.0, 5000, dtype=np.float64)
-        d_delta = TDigest.from_array(data, delta=171.0, scale="k2")
-        d_max = TDigest.from_array(data, max_size=100, scale="k2")
+    def test_delta_constructor_matches_old_k2_cluster_count(self):
+        rng = np.random.default_rng(7)
+        data = rng.normal(0.0, 1.0, size=5000).astype(np.float64)
 
-        assert len(d_delta) == len(d_max)
-        assert d_delta.quantile(0.5) == pytest.approx(d_max.quantile(0.5), abs=1e-12)
-        assert d_delta.cdf(0.0) == pytest.approx(d_max.cdf(0.0), abs=1e-12)
+        for delta in [100.0, 171.0, 300.0]:
+            d = TDigest.from_array(data, delta=delta)
+            assert len(d) == _old_cluster_count(data, delta)
 
-    def test_delta_from_means_weights_is_supported(self):
-        d_delta = TDigest.from_means_weights([0.0, 1.0, 2.0], [1.0, 2.0, 3.0], delta=171.0, scale="k2")
-        d_max = TDigest.from_means_weights([0.0, 1.0, 2.0], [1.0, 2.0, 3.0], max_size=100, scale="k2")
+    def test_delta_from_means_weights_matches_old_k2_cluster_count(self):
+        means = np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        weights = np.array([100.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float64)
 
-        assert len(d_delta) == len(d_max)
-        assert d_delta.quantile(0.5) == pytest.approx(d_max.quantile(0.5), abs=1e-12)
+        for delta in [20.0, 100.0, 171.0]:
+            d = TDigest.from_means_weights(means, weights, delta=delta)
+            assert len(d) == _old_cluster_count_weighted(means, weights, delta)
 
     def test_max_size_and_delta_are_mutually_exclusive(self):
         with pytest.raises(ValueError, match="either max_size or delta"):
             TDigest.from_array([0.0, 1.0], max_size=64, delta=100.0)
         with pytest.raises(ValueError, match="either max_size or delta"):
             TDigest.from_means_weights([0.0], [1.0], max_size=64, delta=100.0)
+
+    def test_delta_mode_rejects_non_k2_scale(self):
+        with pytest.raises(ValueError, match="scale='k2'"):
+            TDigest.from_array([0.0, 1.0], delta=100.0, scale="k3")
+
+    def test_delta_mode_rejects_non_off_singleton_policy(self):
+        with pytest.raises(ValueError, match="singleton_policy='off'"):
+            TDigest.from_array([0.0, 1.0], delta=100.0, singleton_policy="use")
+
+    def test_delta_mode_defaults_singleton_policy_to_off(self):
+        data = np.array([0.0, 0.0, 1.0, 2.0, 3.0], dtype=np.float64)
+        d_default = TDigest.from_array(data, delta=100.0)
+        d_off = TDigest.from_array(data, delta=100.0, singleton_policy="off")
+        assert len(d_default) == len(d_off)
+        assert d_default.quantile(0.5) == pytest.approx(d_off.quantile(0.5), abs=1e-12)
 
     def test_default_constructor_uses_max_size_100(self):
         data = np.arange(1000, dtype=np.float64)

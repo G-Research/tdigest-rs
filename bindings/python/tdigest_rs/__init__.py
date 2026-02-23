@@ -37,7 +37,6 @@ class SingletonPolicy(str, Enum):
 
 
 _DEFAULT_MAX_SIZE = 100
-_DELTA_TO_MAX_SIZE = 1.71
 _UNSET = object()
 
 
@@ -99,7 +98,7 @@ def _validate_delta(delta: Any) -> float:
     return d
 
 
-def _resolve_max_size(max_size_raw: Any, delta_raw: Any) -> int:
+def _resolve_size_mode(max_size_raw: Any, delta_raw: Any) -> tuple[int, Optional[float]]:
     has_max_size = max_size_raw is not _UNSET and max_size_raw is not None
     has_delta = delta_raw is not _UNSET and delta_raw is not None
 
@@ -107,14 +106,12 @@ def _resolve_max_size(max_size_raw: Any, delta_raw: Any) -> int:
         raise ValueError("Specify either max_size or delta (or neither for default max_size=100), not both.")
 
     if has_max_size:
-        return _validate_max_size(max_size_raw)
+        return _validate_max_size(max_size_raw), None
 
     if has_delta:
-        delta = _validate_delta(delta_raw)
-        mapped = int(round(delta / _DELTA_TO_MAX_SIZE))
-        return _validate_max_size(max(mapped, 10))
+        return _DEFAULT_MAX_SIZE, _validate_delta(delta_raw)
 
-    return _DEFAULT_MAX_SIZE
+    return _DEFAULT_MAX_SIZE, None
 
 
 def _validate_pin_per_side(pin_per_side: Optional[int], max_size: int) -> Optional[int]:
@@ -154,7 +151,7 @@ def _from_array_cls(
     *,
     max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
-    singleton_policy: SingletonPolicy | str | None = "use",
+    singleton_policy: SingletonPolicy | str | None = None,
     pin_per_side: Optional[int] = None,
     **kwargs: Any,
 ) -> _NativeTDigest:
@@ -165,10 +162,19 @@ def _from_array_cls(
       - new API: precision="auto" | "f32" | "f64"
       - legacy API: f32_mode=True/False
     """
+    delta_raw = kwargs.pop("delta", _UNSET)
+    max_size, legacy_delta = _resolve_size_mode(max_size, delta_raw)
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
-    delta_raw = kwargs.pop("delta", _UNSET)
-    max_size = _resolve_max_size(max_size, delta_raw)
+
+    if legacy_delta is not None:
+        if s != "K2":
+            raise ValueError("delta legacy mode only supports scale='k2'.")
+        if singleton_policy is not None and m != "off":
+            raise ValueError("delta legacy mode only supports singleton_policy='off'.")
+        if pin_per_side is not None:
+            raise ValueError("pin_per_side is not supported when using delta legacy mode.")
+        m = "off"
 
     if m != "edges" and pin_per_side is not None:
         raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
@@ -201,6 +207,8 @@ def _from_array_cls(
     }
     if eps is not None:
         call_kwargs["pin_per_side"] = int(eps)
+    if legacy_delta is not None:
+        call_kwargs["legacy_delta"] = legacy_delta
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))
@@ -225,14 +233,23 @@ def _from_means_weights_cls(
     *,
     max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
-    singleton_policy: SingletonPolicy | str | None = "use",
+    singleton_policy: SingletonPolicy | str | None = None,
     pin_per_side: Optional[int] = None,
     **kwargs: Any,
 ) -> _NativeTDigest:
+    delta_raw = kwargs.pop("delta", _UNSET)
+    max_size, legacy_delta = _resolve_size_mode(max_size, delta_raw)
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
-    delta_raw = kwargs.pop("delta", _UNSET)
-    max_size = _resolve_max_size(max_size, delta_raw)
+
+    if legacy_delta is not None:
+        if s != "K2":
+            raise ValueError("delta legacy mode only supports scale='k2'.")
+        if singleton_policy is not None and m != "off":
+            raise ValueError("delta legacy mode only supports singleton_policy='off'.")
+        if pin_per_side is not None:
+            raise ValueError("pin_per_side is not supported when using delta legacy mode.")
+        m = "off"
 
     if m != "edges" and pin_per_side is not None:
         raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
@@ -262,6 +279,8 @@ def _from_means_weights_cls(
     }
     if eps is not None:
         call_kwargs["pin_per_side"] = int(eps)
+    if legacy_delta is not None:
+        call_kwargs["legacy_delta"] = legacy_delta
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))

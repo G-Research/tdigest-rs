@@ -115,27 +115,42 @@ where
 
     // -- 2) Slice -------------------------------------------------------------
     let policy = policy_from(result.singleton_policy(), max_size);
-    if let Some(v) = policy.fast_path(&norm.out) {
-        debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(&v));
-        return v;
+    let legacy_delta = result.legacy_delta();
+    if legacy_delta.is_none() {
+        if let Some(v) = policy.fast_path(&norm.out) {
+            debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(&v));
+            return v;
+        }
     }
     let slices = policy.slice(&norm.out);
 
     // -- 3) Merge (k-limit) ---------------------------------------------------
     let family: ScaleFamily = result.scale();
     let d: f64 = result.max_size() as f64;
-    let core = klimit_merge::<F>(slices.interior, d, family);
+    let core = if let Some(delta) = legacy_delta {
+        legacy_delta_merge::<F>(slices.interior, delta)
+    } else {
+        klimit_merge::<F>(slices.interior, d, family)
+    };
 
     // -- 4) Cap ---------------------------------------------------------------
     // Second k-limit cap pass if the interior exceeds its budget.
     // Fallback to equal-weight bucketization remains as a safety net in `cap_core`.
-    let core_capped = cap_core::<F>(core, slices.caps.core_cap, d, family);
+    let core_capped = if legacy_delta.is_some() {
+        core
+    } else {
+        cap_core::<F>(core, slices.caps.core_cap, d, family)
+    };
 
     // -- 5) Assemble ----------------------------------------------------------
     let assembled = assemble_with_edges::<F>(slices.left, core_capped, slices.right);
 
     // -- 6) Post --------------------------------------------------------------
-    let compressed = policy.post(assembled);
+    let compressed = if legacy_delta.is_some() {
+        assembled
+    } else {
+        policy.post(assembled)
+    };
 
     debug_assert!(crate::tdigest::centroids::is_sorted_strict_by_mean(
         &compressed
@@ -332,6 +347,97 @@ fn klimit_merge<F: FloatLike + FloatCore>(
     );
 
     clusters
+}
+
+#[inline]
+fn legacy_k2_log_scale(q: f64, delta: f64, n: f64) -> f64 {
+    if q <= 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    if q >= 1.0 {
+        return f64::INFINITY;
+    }
+    let factor = delta / (4.0 * (n / delta).ln() + 24.0);
+    factor * (q / (1.0 - q)).ln()
+}
+
+#[inline]
+fn legacy_k2_inverse_log_scale(k: f64, delta: f64, n: f64) -> f64 {
+    if k.is_infinite() {
+        return if k.is_sign_negative() { 0.0 } else { 1.0 };
+    }
+    let factor = (4.0 * (n / delta).ln() + 24.0) / delta;
+    1.0 / (1.0 + (-k * factor).exp())
+}
+
+#[inline]
+fn legacy_k2_log_q_limit(q0: f64, delta: f64, n: f64) -> f64 {
+    legacy_k2_inverse_log_scale(legacy_k2_log_scale(q0, delta, n) + 1.0, delta, n)
+}
+
+/// Legacy tdigest-rs (`delta`) merge rule from the old 0.2.x implementation.
+///
+/// This uses the historical K2-like q→k transform:
+/// `k(q) = delta / (4 ln(n/delta) + 24) * ln(q/(1-q))`
+/// with the same one-pass thresholding logic (`q <= q_limit`) used previously.
+fn legacy_delta_merge<F: FloatLike + FloatCore>(
+    items: &[Centroid<F>],
+    delta: f64,
+) -> Vec<Centroid<F>> {
+    if items.is_empty() {
+        return Vec::new();
+    }
+
+    let total_w: f64 = items.iter().map(|c| c.weight_f64()).sum();
+    if total_w <= 0.0 {
+        return Vec::new();
+    }
+    // Old tdigest-rs uses n = number of input centroids in the current merge pass,
+    // not total sample weight.
+    let n = items.len() as f64;
+
+    let first = items[0];
+    let mut sigma = WeightedStats::default();
+    sigma.add(first.mean_f64(), first.weight_f64());
+    let mut sigma_singleton = first.is_singleton();
+    let mut sigma_len = 1usize;
+
+    let mut out: Vec<Centroid<F>> = Vec::with_capacity(items.len());
+    let mut cumulative_w = 0.0_f64;
+    let mut q_limit = legacy_k2_log_q_limit(0.0, delta, n);
+
+    for c in items.iter().skip(1) {
+        let w = c.weight_f64();
+        let q = (cumulative_w + sigma.w_sum + w) / total_w;
+        if q <= q_limit {
+            sigma.add(c.mean_f64(), w);
+            sigma_singleton = false;
+            sigma_len += 1;
+        } else {
+            out.push(build_centroid::<F>(
+                sigma.mean(),
+                sigma.w_sum,
+                sigma_singleton,
+                sigma_len,
+            ));
+            cumulative_w += sigma.w_sum;
+            q_limit = legacy_k2_log_q_limit(cumulative_w / total_w, delta, n);
+
+            sigma.clear();
+            sigma.add(c.mean_f64(), w);
+            sigma_singleton = c.is_singleton();
+            sigma_len = 1;
+        }
+    }
+
+    out.push(build_centroid::<F>(
+        sigma.mean(),
+        sigma.w_sum,
+        sigma_singleton,
+        sigma_len,
+    ));
+
+    out
 }
 
 /// **(4) Cap** — reduce to at most `core_cap` by running a second k-limit pass.
@@ -673,6 +779,69 @@ mod tests {
             assert!(out[0].is_singleton(), "single-item cluster remains atomic");
             assert!(!out[1].is_singleton(), "multi-item cluster must be mixed");
         }
+    }
+
+    #[test]
+    fn legacy_delta_merge_matches_old_k2_rule_for_weighted_input() {
+        let items = vec![
+            c::<Fp>(0.0, 100.0, true),
+            c::<Fp>(1.0, 1.0, true),
+            c::<Fp>(2.0, 1.0, true),
+            c::<Fp>(3.0, 1.0, true),
+            c::<Fp>(4.0, 1.0, true),
+        ];
+        let delta = 20.0;
+        let out = super::legacy_delta_merge(&items, delta);
+
+        // Reference old tdigest-rs 0.2.x behavior:
+        // q_limit uses n=len(means), while q uses cumulative/total weights.
+        let total_w: f64 = items.iter().map(|x| x.weight_f64()).sum();
+        let n = items.len() as f64;
+        let mut count = 0usize;
+        let mut cumulative = 0.0_f64;
+        let mut sigma = items[0].weight_f64();
+        let mut q_limit = super::legacy_k2_log_q_limit(0.0, delta, n);
+        for c in items.iter().skip(1) {
+            let w = c.weight_f64();
+            let q = (cumulative + sigma + w) / total_w;
+            if q <= q_limit {
+                sigma += w;
+            } else {
+                count += 1;
+                cumulative += sigma;
+                q_limit = super::legacy_k2_log_q_limit(cumulative / total_w, delta, n);
+                sigma = w;
+            }
+        }
+        count += 1;
+
+        assert_eq!(out.len(), count);
+        let w_out: f64 = out.iter().map(|x| x.weight_f64()).sum();
+        assert!(approx(total_w, w_out, 1e-12), "weight preserved");
+    }
+
+    #[test]
+    fn legacy_delta_mode_bypasses_off_fast_path_and_runs_merge() {
+        let mut td = TDigest::<Fp>::builder()
+            .max_size(100) // larger than input centroid count
+            .scale(ScaleFamily::K2)
+            .singleton_policy(SingletonPolicy::Off)
+            .legacy_delta(20.0)
+            .build();
+
+        let input = vec![
+            c::<Fp>(0.0, 100.0, true),
+            c::<Fp>(1.0, 1.0, true),
+            c::<Fp>(2.0, 1.0, true),
+            c::<Fp>(3.0, 1.0, true),
+            c::<Fp>(4.0, 1.0, true),
+        ];
+        let out = super::compress_into(&mut td, 100, input);
+        assert_eq!(
+            out.len(),
+            4,
+            "legacy mode must still merge when len <= max_size"
+        );
     }
 
     // ---------- edge run length ----------

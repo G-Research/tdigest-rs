@@ -106,7 +106,8 @@ impl PyTDigest {
 #[pymethods]
 impl PyTDigest {
     #[staticmethod]
-    #[pyo3(signature = (values, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor signature mirrors public Python API.
+    #[pyo3(signature = (values, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None, legacy_delta=None))]
     pub fn from_array(
         py: Python<'_>,
         values: PyObject,
@@ -115,6 +116,7 @@ impl PyTDigest {
         f32_mode: bool,
         singleton_policy: Option<&str>,
         pin_per_side: Option<usize>,
+        legacy_delta: Option<f64>,
     ) -> PyResult<Self> {
         if max_size == 0 {
             return Err(PyValueError::new_err("max_size must be > 0"));
@@ -122,12 +124,28 @@ impl PyTDigest {
 
         let sc = parse_scale(scale)?;
         let policy = parse_policy(singleton_policy, pin_per_side)?;
+        if let Some(delta) = legacy_delta {
+            if !delta.is_finite() || delta <= 0.0 {
+                return Err(PyValueError::new_err("legacy_delta must be finite and > 0"));
+            }
+            if sc != ScaleFamily::K2 {
+                return Err(PyValueError::new_err(
+                    "legacy_delta mode only supports scale='k2'",
+                ));
+            }
+            if policy != SingletonPolicy::Off {
+                return Err(PyValueError::new_err(
+                    "legacy_delta mode only supports singleton_policy='off'",
+                ));
+            }
+        }
         let (_ndim, values_f64) = array_values(py, values)?;
 
         let config = DigestConfig {
             max_size,
             scale: sc,
             policy,
+            legacy_delta,
         };
         let precision = if f32_mode {
             DigestPrecision::F32
@@ -141,7 +159,8 @@ impl PyTDigest {
     }
 
     #[staticmethod]
-    #[pyo3(signature = (means, weights, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None))]
+    #[allow(clippy::too_many_arguments)] // PyO3 constructor signature mirrors public Python API.
+    #[pyo3(signature = (means, weights, max_size=1000, scale=None, f32_mode=false, singleton_policy=None, pin_per_side=None, legacy_delta=None))]
     pub fn from_means_weights(
         py: Python<'_>,
         means: PyObject,
@@ -151,6 +170,7 @@ impl PyTDigest {
         f32_mode: bool,
         singleton_policy: Option<&str>,
         pin_per_side: Option<usize>,
+        legacy_delta: Option<f64>,
     ) -> PyResult<Self> {
         if max_size == 0 {
             return Err(PyValueError::new_err("max_size must be > 0"));
@@ -158,6 +178,21 @@ impl PyTDigest {
 
         let sc = parse_scale(scale)?;
         let policy = parse_policy(singleton_policy, pin_per_side)?;
+        if let Some(delta) = legacy_delta {
+            if !delta.is_finite() || delta <= 0.0 {
+                return Err(PyValueError::new_err("legacy_delta must be finite and > 0"));
+            }
+            if sc != ScaleFamily::K2 {
+                return Err(PyValueError::new_err(
+                    "legacy_delta mode only supports scale='k2'",
+                ));
+            }
+            if policy != SingletonPolicy::Off {
+                return Err(PyValueError::new_err(
+                    "legacy_delta mode only supports singleton_policy='off'",
+                ));
+            }
+        }
         let (_ndim_m, means_f64) = array_values(py, means)?;
         let (_ndim_w, weights_f64) = array_values(py, weights)?;
         if means_f64.len() != weights_f64.len() {
@@ -172,6 +207,7 @@ impl PyTDigest {
             max_size,
             scale: sc,
             policy,
+            legacy_delta,
         };
         let precision = if f32_mode {
             DigestPrecision::F32
