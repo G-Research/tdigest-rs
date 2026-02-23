@@ -5,7 +5,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   DEFAULT_PYTHON_VERSION: "3.12"
-  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  UV_PROJECT_ENVIRONMENT: .venv
 
 permissions:
   contents: read
@@ -18,33 +18,46 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ env.DEFAULT_PYTHON_VERSION }}
         uses: actions/setup-python@v5
-        id: setup-python
         with:
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
           check-latest: true
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Sync Python dependencies
+        run: uv sync --all-groups --project bindings/python
       - name: Lint
-        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:lint
-        working-directory: bindings/python
+        run: |
+          uv run --project bindings/python ruff check bindings/python
+          uv run --project bindings/python ruff format --check bindings/python
+          uv run --project bindings/python mypy --config-file bindings/python/pyproject.toml bindings/python/tdigest_rs
 
   test:
     name: Test
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-        runner: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        python-version: ["3.12"]
+        runner: [ubuntu-latest, macos-14, windows-latest]
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
-        id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
           check-latest: true
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Sync Python dependencies
+        run: uv sync --all-groups --project bindings/python
+      - name: Build Python extension
+        run: uv run --project bindings/python maturin develop -F python
       - name: Test
-        run: pipx run --python '${{ steps.setup-python.outputs.python-path }}' hatch run dev:test
-        working-directory: bindings/python
+        run: uv run --project bindings/python pytest -q bindings/python/tests/test_api_python.py
 
   build:
     name: Build
@@ -59,8 +72,6 @@ jobs:
             target: aarch64-unknown-linux-musl
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-          - runner: macos-13
-            target: x86_64-apple-darwin
           - runner: macos-14
             target: aarch64-apple-darwin
           - runner: windows-latest

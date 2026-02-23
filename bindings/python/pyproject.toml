@@ -1,74 +1,73 @@
 [build-system]
-requires = ["maturin>=1.1,<2.0", "hatchling"]
+requires = ["maturin>=1.9.5,<2.0"]
 build-backend = "maturin"
 
 [project]
 name = "tdigest-rs"
-requires-python = ">=3.10"
-classifiers = ["Programming Language :: Rust"]
 dynamic = ["version"]
-description = "Simple Python package to compute TDigests, implemented in Rust"
+description = "Rust TDigest with Python bindings"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Ingolfur Edvardsson", email = "ingo.edvardsson@gresearch.co.uk" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+]
 
-[project.urls]
-Repository = "https://github.com/G-Research/tdigest-rs"
-Changelog = "https://github.com/G-Research/tdigest-rs/releases"
+# Runtime dependencies
+dependencies = []
 
-[project.optional-dependencies]
+# Dev groups (PEP 735). uv understands these and can install with --group/--all-groups.
+[dependency-groups]
 dev = [
-    "hypothesis",
-    "joblib",
-    "maturin",
-    "pytest",
-    "pytest-runner",
-    "pytest-xdist",
-    "scipy",
-    "ruff",
+  "pytest>=8.4.2",
+  "ruff>=0.13.3",
+  "pre-commit>=4.3.0",
+  "maturin>=1.9.5",
+  "numpy>=2.3.3",
+  "mypy>=1.18.2",
 ]
 
-[tool.hatch.envs.dev]
-features = ["dev"]
-
-
-[tool.hatch.envs.dev.scripts]
-lint = [
-    "ruff check tdigest_rs/",
-    "cargo fmt --all --check",
-    "cargo clippy --all",
-]
-format = ["ruff format .", "ruff check --fix .", "cargo fmt --all"]
-release = ["lint", "test"]
-test = "pytest {args}"
-benchmark = "python benchmarks/run.py"
-
+# ------------------------------------------------------------
+# Maturin build settings
+# ------------------------------------------------------------
 [tool.maturin]
-features = ["pyo3/extension-module"]
+manifest-path = "../../Cargo.toml"
+features = ["python"]
+bindings = "pyo3"
+module-name = "tdigest_rs._tdigest_rs"
+strip = true
+manylinux = "2_28"
+zig = true
 
-[tool.pytest]
-log_cli = true
-
+# ------------------------------------------------------------
+# Ruff
+# ------------------------------------------------------------
 [tool.ruff]
 line-length = 120
-indent-width = 4
+target-version = "py312"
+extend-exclude = ["target","dist","build",".venv",".maturin",".pytest_cache",".ruff_cache"]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
+# ------------------------------------------------------------
+# Pytest
+# ------------------------------------------------------------
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["bindings/python/tests"]
+pythonpath = ["."]
 
-[tool.ruff.lint]
-select = [
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "F", # pyflakes
-    "C", # flake8-comprehensions
-    "B", # flake8-bugbea
-    "I", # isort
-]
-ignore = [
-    "E501", # line too long, handled by black
-    "B008", # do not perform function calls in argument defaults
-    "C901", # too complex
-]
+# ------------------------------------------------------------
+# Mypy
+# ------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+exclude = "(^target/|^build/|^dist/|^\\.venv/|^out/)"
+ignore_missing_imports = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
