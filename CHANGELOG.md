@@ -10,6 +10,8 @@ All notable changes to this project are documented in this file.
 - Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
 - Python constructors now accept legacy `delta` as an explicit input parameter (including positional legacy style) as an alternative to `max_size` (mutually exclusive), with a dedicated legacy compressor mode that mirrors old tdigest-rs K2-style merge behavior.
 - Added `bindings/python/benchmarks/run.py` benchmark runner (ported from old bindings), with CLI args for workload size, threading, and delta-mode benchmarking.
+- Python `merge(...)` wrapper now uses native `merge_all([self, other])`, preserving legacy-delta config compatibility in non-mutating merges.
+- Python pickling/deepcopy support added via `__reduce__` restoration from wire bytes.
 - Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
 - Compressor Stage 4 cap strategy now uses a second k-limit merge with binary-searched `d'` (same scale-family geometry as Stage 3) instead of always using equal-weight bucketization.
 - CI matrix and dependency setup were adjusted for portability:
@@ -31,6 +33,7 @@ All notable changes to this project are documented in this file.
   - `to_dict()` / `from_dict()` with new schema and legacy schema support
 - Rust core + Python binding `trimmed_mean(lower, upper)`.
 - Stage 4 unit coverage for cap/weight/order invariants under the new second-pass k-limit cap behavior.
+- Ported/updated Python compatibility coverage from `origin/main` test suite into `bindings/python/tests/test_master_compat_python.py` (all legacy test scenarios represented; non-finite input cases aligned to strict-validation behavior).
 
 ## [0.2.4] - 2026-02-16
 

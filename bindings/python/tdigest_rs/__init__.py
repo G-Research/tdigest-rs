@@ -317,9 +317,9 @@ _native_scale_values = cast(Callable[..., Any], _native_scale_values_raw)
 
 
 def _merge_patched(self: _NativeTDigest, other: Any) -> _NativeTDigest:
-    out = TDigest.from_bytes(self.to_bytes())
-    _native_merge(out, other)
-    return out
+    # Build a new digest without mutating inputs while preserving config
+    # (including legacy delta mode) through native merge_all.
+    return TDigest.merge_all([self, other])
 
 
 setattr(TDigest, "merge", _merge_patched)
@@ -337,6 +337,18 @@ def _update_patched(self: _NativeTDigest, buffer: Any, **kwargs: Any) -> _Native
 
 
 setattr(TDigest, "update", _update_patched)
+
+
+def _restore_from_bytes(blob: bytes) -> _NativeTDigest:
+    return TDigest.from_bytes(blob)
+
+
+def _reduce_patched(self: _NativeTDigest) -> tuple[Any, tuple[bytes]]:
+    # Pickle/deepcopy support via canonical wire representation.
+    return (_restore_from_bytes, (self.to_bytes(),))
+
+
+setattr(TDigest, "__reduce__", _reduce_patched)
 
 
 def _add_patched(self: _NativeTDigest, values: Any) -> _NativeTDigest:

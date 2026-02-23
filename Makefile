@@ -47,7 +47,7 @@ rust-test:
 	$(CARGO) test -- --quiet
 
 py-test: build-python
-	(cd $(PY_DIR) && $(UV_ENV) $(UV) run --no-sync pytest -q tests/test_api_python.py)
+	(cd $(PY_DIR) && $(UV_ENV) $(UV) run --no-sync pytest -q tests/test_api_python.py tests/test_master_compat_python.py)
 
 bench:
 	$(CARGO) bench --bench tdigest_bench -- --noplot
