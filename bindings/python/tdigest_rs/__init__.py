@@ -148,6 +148,7 @@ _native_from_array = cast(Callable[..., Any], _native_from_array_raw)
 def _from_array_cls(
     cls: type[_NativeTDigest],
     data: Any,
+    delta: Any = _UNSET,
     *,
     max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
@@ -162,8 +163,7 @@ def _from_array_cls(
       - new API: precision="auto" | "f32" | "f64"
       - legacy API: f32_mode=True/False
     """
-    delta_raw = kwargs.pop("delta", _UNSET)
-    max_size, legacy_delta = _resolve_size_mode(max_size, delta_raw)
+    max_size, legacy_delta = _resolve_size_mode(max_size, delta)
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
 
@@ -208,7 +208,7 @@ def _from_array_cls(
     if eps is not None:
         call_kwargs["pin_per_side"] = int(eps)
     if legacy_delta is not None:
-        call_kwargs["legacy_delta"] = legacy_delta
+        call_kwargs["delta"] = legacy_delta
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))
@@ -230,6 +230,7 @@ def _from_means_weights_cls(
     cls: type[_NativeTDigest],
     arr: Any,
     weights: Any,
+    delta: Any = _UNSET,
     *,
     max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
@@ -237,8 +238,7 @@ def _from_means_weights_cls(
     pin_per_side: Optional[int] = None,
     **kwargs: Any,
 ) -> _NativeTDigest:
-    delta_raw = kwargs.pop("delta", _UNSET)
-    max_size, legacy_delta = _resolve_size_mode(max_size, delta_raw)
+    max_size, legacy_delta = _resolve_size_mode(max_size, delta)
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
 
@@ -280,7 +280,7 @@ def _from_means_weights_cls(
     if eps is not None:
         call_kwargs["pin_per_side"] = int(eps)
     if legacy_delta is not None:
-        call_kwargs["legacy_delta"] = legacy_delta
+        call_kwargs["delta"] = legacy_delta
 
     if kwargs:
         extra = ", ".join(sorted(kwargs.keys()))

@@ -33,6 +33,7 @@ print(len(m3), m3.means, m3.weights)
 - Constructor compatibility accepts either `max_size` or legacy `delta`.
   - Do not pass both in the same call.
   - If neither is set, Python constructors default to `max_size=100`.
+  - `delta` is available as an explicit constructor parameter (including old positional style).
   - `delta` runs a dedicated legacy mode that mirrors the old tdigest-rs K2-style merge rule.
   - In `delta` mode, only `scale='k2'` and `singleton_policy='off'` are supported.
 - Python keeps compatibility methods:

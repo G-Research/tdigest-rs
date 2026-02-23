@@ -260,6 +260,13 @@ class TestPythonApiValidation:
             d = TDigest.from_array(data, delta=delta)
             assert len(d) == _old_cluster_count(data, delta)
 
+    def test_delta_constructor_positional_argument_is_supported(self):
+        data = np.linspace(-3.0, 3.0, 5000, dtype=np.float64)
+        d_pos = TDigest.from_array(data, 171.0)
+        d_kw = TDigest.from_array(data, delta=171.0)
+        assert len(d_pos) == len(d_kw)
+        assert d_pos.quantile(0.5) == pytest.approx(d_kw.quantile(0.5), abs=1e-12)
+
     def test_delta_from_means_weights_matches_old_k2_cluster_count(self):
         means = np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float64)
         weights = np.array([100.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float64)
@@ -267,6 +274,14 @@ class TestPythonApiValidation:
         for delta in [20.0, 100.0, 171.0]:
             d = TDigest.from_means_weights(means, weights, delta=delta)
             assert len(d) == _old_cluster_count_weighted(means, weights, delta)
+
+    def test_delta_from_means_weights_positional_argument_is_supported(self):
+        means = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float64)
+        weights = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        d_pos = TDigest.from_means_weights(means, weights, 171.0)
+        d_kw = TDigest.from_means_weights(means, weights, delta=171.0)
+        assert len(d_pos) == len(d_kw)
+        assert d_pos.quantile(0.5) == pytest.approx(d_kw.quantile(0.5), abs=1e-12)
 
     def test_max_size_and_delta_are_mutually_exclusive(self):
         with pytest.raises(ValueError, match="either max_size or delta"):
