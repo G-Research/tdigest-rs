@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Callable, Dict, Literal, Optional, cast
 
 import base64
+import math
 
 try:
     from ._tdigest_rs import TDigest as _NativeTDigest, __version__ as __native_version__
@@ -33,6 +34,11 @@ class SingletonPolicy(str, Enum):
     OFF = "off"
     USE = "use"
     EDGES = "edges"
+
+
+_DEFAULT_MAX_SIZE = 100
+_DELTA_TO_MAX_SIZE = 1.71
+_UNSET = object()
 
 
 def _coerce_scale_for_class(scale: ScaleFamily | str) -> str:
@@ -81,6 +87,36 @@ def _validate_max_size(max_size: int) -> int:
     return m
 
 
+def _validate_delta(delta: Any) -> float:
+    try:
+        d = float(delta)
+    except Exception as exc:  # noqa: BLE001
+        raise TypeError(f"delta must be a finite number; got {type(delta).__name__}.") from exc
+    if not math.isfinite(d):
+        raise ValueError("delta must be finite and > 0.")
+    if d <= 0.0:
+        raise ValueError("delta must be > 0.")
+    return d
+
+
+def _resolve_max_size(max_size_raw: Any, delta_raw: Any) -> int:
+    has_max_size = max_size_raw is not _UNSET and max_size_raw is not None
+    has_delta = delta_raw is not _UNSET and delta_raw is not None
+
+    if has_max_size and has_delta:
+        raise ValueError("Specify either max_size or delta (or neither for default max_size=100), not both.")
+
+    if has_max_size:
+        return _validate_max_size(max_size_raw)
+
+    if has_delta:
+        delta = _validate_delta(delta_raw)
+        mapped = int(round(delta / _DELTA_TO_MAX_SIZE))
+        return _validate_max_size(max(mapped, 10))
+
+    return _DEFAULT_MAX_SIZE
+
+
 def _validate_pin_per_side(pin_per_side: Optional[int], max_size: int) -> Optional[int]:
     if pin_per_side is None:
         return None
@@ -116,7 +152,7 @@ def _from_array_cls(
     cls: type[_NativeTDigest],
     data: Any,
     *,
-    max_size: int = 200,
+    max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
     singleton_policy: SingletonPolicy | str | None = "use",
     pin_per_side: Optional[int] = None,
@@ -131,7 +167,8 @@ def _from_array_cls(
     """
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
-    max_size = _validate_max_size(max_size)
+    delta_raw = kwargs.pop("delta", _UNSET)
+    max_size = _resolve_max_size(max_size, delta_raw)
 
     if m != "edges" and pin_per_side is not None:
         raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
@@ -141,10 +178,6 @@ def _from_array_cls(
 
     prec_raw = kwargs.pop("precision", None)
     f32_mode_raw = kwargs.pop("f32_mode", None)
-    delta_raw = kwargs.pop("delta", None)
-
-    if delta_raw is not None:
-        raise ValueError("delta is no longer supported. Use max_size and scale to configure compression.")
 
     prec_norm = _coerce_precision(prec_raw)  # "auto" | "f64" | "f32"
 
@@ -190,7 +223,7 @@ def _from_means_weights_cls(
     arr: Any,
     weights: Any,
     *,
-    max_size: int = 200,
+    max_size: Any = _UNSET,
     scale: ScaleFamily | str = "k2",
     singleton_policy: SingletonPolicy | str | None = "use",
     pin_per_side: Optional[int] = None,
@@ -198,7 +231,8 @@ def _from_means_weights_cls(
 ) -> _NativeTDigest:
     s = _coerce_scale_for_class(scale)
     m = _norm_policy(singleton_policy)
-    max_size = _validate_max_size(max_size)
+    delta_raw = kwargs.pop("delta", _UNSET)
+    max_size = _resolve_max_size(max_size, delta_raw)
 
     if m != "edges" and pin_per_side is not None:
         raise ValueError("pin_per_side is only allowed when singleton_policy='edges'")
@@ -208,10 +242,6 @@ def _from_means_weights_cls(
 
     prec_raw = kwargs.pop("precision", None)
     f32_mode_raw = kwargs.pop("f32_mode", None)
-    delta_raw = kwargs.pop("delta", None)
-
-    if delta_raw is not None:
-        raise ValueError("delta is no longer supported. Use max_size and scale to configure compression.")
 
     prec_norm = _coerce_precision(prec_raw)
 

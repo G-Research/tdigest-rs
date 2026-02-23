@@ -30,8 +30,10 @@ print(len(m3), m3.means, m3.weights)
 ```
 
 ## Migration notes (0.x -> 2.0.0)
-- `delta` arguments are removed.
-- Use `max_size` + `scale` instead.
+- Constructor compatibility accepts either `max_size` or legacy `delta`.
+  - Do not pass both in the same call.
+  - If neither is set, Python constructors default to `max_size=100`.
+  - `delta` maps to internal `max_size` using the legacy-compat scale factor.
 - Python keeps compatibility methods:
   - `from_means_weights(...)`
   - `update(...)` (returns new digest)

@@ -8,7 +8,7 @@ All notable changes to this project are documented in this file.
 - Snapshot overwrite of implementation to the unified Rust core + Python/Polars/CLI/Java/JNI stack.
 - Project version target updated from `1.0.0` to `2.0.0` to avoid collision with pre-existing `1.0.x` releases.
 - Project identity normalized to `tdigest-rs` / `tdigest_rs` across code, docs, and packaging metadata.
-- Python API removed legacy `delta` configuration in favor of `max_size` + `scale` and keeps strict non-finite validation.
+- Python constructors now accept legacy `delta` as an alternative to `max_size` (mutually exclusive), with explicit validation and default constructor behavior aligned to `max_size=100`.
 - Java namespace migrated to `com.gresearch.tdigest` with aligned JNI symbol names.
 - Compressor Stage 4 cap strategy now uses a second k-limit merge with binary-searched `d'` (same scale-family geometry as Stage 3) instead of always using equal-weight bucketization.
 - CI matrix and dependency setup were adjusted for portability:

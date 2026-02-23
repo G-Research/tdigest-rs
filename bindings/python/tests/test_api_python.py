@@ -190,12 +190,41 @@ class TestPythonApiValidation:
         with pytest.raises(ValueError):
             d.trimmed_mean(0.8, 0.2)
 
-    def test_delta_arguments_are_rejected(self):
-        with pytest.raises(ValueError):
-            TDigest.from_array([0.0, 1.0], delta=100.0)
-        with pytest.raises(ValueError):
-            TDigest.from_means_weights([0.0], [1.0], delta=100.0)
+    def test_delta_constructor_argument_is_supported(self):
+        data = np.linspace(-5.0, 5.0, 5000, dtype=np.float64)
+        d_delta = TDigest.from_array(data, delta=171.0, scale="k2")
+        d_max = TDigest.from_array(data, max_size=100, scale="k2")
 
+        assert len(d_delta) == len(d_max)
+        assert d_delta.quantile(0.5) == pytest.approx(d_max.quantile(0.5), abs=1e-12)
+        assert d_delta.cdf(0.0) == pytest.approx(d_max.cdf(0.0), abs=1e-12)
+
+    def test_delta_from_means_weights_is_supported(self):
+        d_delta = TDigest.from_means_weights([0.0, 1.0, 2.0], [1.0, 2.0, 3.0], delta=171.0, scale="k2")
+        d_max = TDigest.from_means_weights([0.0, 1.0, 2.0], [1.0, 2.0, 3.0], max_size=100, scale="k2")
+
+        assert len(d_delta) == len(d_max)
+        assert d_delta.quantile(0.5) == pytest.approx(d_max.quantile(0.5), abs=1e-12)
+
+    def test_max_size_and_delta_are_mutually_exclusive(self):
+        with pytest.raises(ValueError, match="either max_size or delta"):
+            TDigest.from_array([0.0, 1.0], max_size=64, delta=100.0)
+        with pytest.raises(ValueError, match="either max_size or delta"):
+            TDigest.from_means_weights([0.0], [1.0], max_size=64, delta=100.0)
+
+    def test_default_constructor_uses_max_size_100(self):
+        data = np.arange(1000, dtype=np.float64)
+        d_default = TDigest.from_array(data, scale="k2")
+        d_100 = TDigest.from_array(data, max_size=100, scale="k2")
+        assert len(d_default) == len(d_100)
+        assert d_default.quantile(0.5) == pytest.approx(d_100.quantile(0.5), abs=1e-12)
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), float("inf")])
+    def test_delta_validation(self, bad):
+        with pytest.raises(ValueError):
+            TDigest.from_array([0.0, 1.0], delta=bad)
+
+    def test_update_delta_arguments_are_rejected(self):
         d = TDigest.from_array([0.0, 1.0], max_size=64, scale="k2")
         with pytest.raises(ValueError):
             d.update([2.0], delta=10.0)
