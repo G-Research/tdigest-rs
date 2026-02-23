@@ -120,7 +120,6 @@ impl RunHead {
 impl Ord for RunHead {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        // BinaryHeap is max-first. Reverse ordering to pop the smallest mean.
         other
             .mean
             .cmp(&self.mean)
@@ -212,10 +211,6 @@ pub(crate) fn merge_runs_concat_sort<F: FloatLike + FloatCore>(
     all
 }
 
-/* =============================================================================
- * Normalization shim used by compressor (Stage 1)
- * ============================================================================= */
-
 /// Output of `normalize_stream`.
 pub struct Normalized<F: FloatLike + FloatCore> {
     pub out: Vec<Centroid<F>>,
@@ -259,7 +254,6 @@ where
     let min_mean = cur_mean;
     let mut max_mean = cur_mean;
 
-    // Fold contiguous equal-means; validate ordering.
     for c in it {
         let m = c.mean_f64();
         let w = c.weight_f64();
@@ -271,12 +265,10 @@ where
         if m == cur_mean {
             cur_w += w;
         } else {
-            // Flush previous run as a **singleton** pile.
             out.push(Centroid::<F>::new_singleton_f64(cur_mean, cur_w));
             total_w += cur_w;
             total_mw += cur_mean * cur_w;
 
-            // Start new run
             cur_mean = m;
             cur_w = w;
         }
@@ -286,7 +278,6 @@ where
         }
     }
 
-    // Flush last run
     out.push(Centroid::<F>::new_singleton_f64(cur_mean, cur_w));
     total_w += cur_w;
     total_mw += cur_mean * cur_w;
@@ -337,7 +328,6 @@ mod tests {
         let mut out = Vec::with_capacity(len);
         let mut mean = rng.random_range(-1_000.0..1_000.0);
         for _ in 0..len {
-            // Keep each run sorted; allow repeats to exercise equal-mean handling.
             mean += rng.random_range(0.0..4.0);
             let w = rng.random_range(0.5..8.0);
             let c = if rng.random_bool(0.35) {

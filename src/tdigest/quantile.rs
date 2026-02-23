@@ -45,11 +45,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// - **NaN `q`** → **`NaN`**.
     /// - For single-centroid digests, returns that mean.
     pub fn quantile(&self, q: f64) -> f64 {
-        // NaN probe propagates
         if q.is_nan() {
             return f64::NAN;
         }
-        // Empty digest → NaN
         if self.centroids().is_empty() {
             return f64::NAN;
         }
@@ -57,11 +55,9 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             return self.centroids()[0].mean_f64();
         }
 
-        // Only clamp after guarding NaN
         let q = q.clamp(0.0, 1.0);
         let (target_index, total_weight) = self.quantile_to_weight_index(q);
 
-        // Strict edge clamps: keep boundary cases (index==1 or index==N-1) in the interior logic.
         if target_index < 1.0 {
             return self.min();
         }
@@ -112,7 +108,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             cum_w_at_left_center += center_span_weight;
         }
 
-        // Fallback: last pair (shouldn't happen in normal flow).
         let m = self.centroids().len();
         let w_last = self.centroids()[m - 1].weight_f64();
         let span_w = (self.centroids()[m - 2].weight_f64() + w_last) / 2.0;
@@ -141,7 +136,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
         let (m_left, m_right) = (left.mean_f64(), right.mean_f64());
         let right_center_cum_w = cum_w_at_left_center + center_span_weight;
 
-        // Inside a multi-weight singleton "pile" → return exact mean.
         if left.is_singleton()
             && w_left > 1.0
             && Self::inside_pile_strict(target_index, cum_w_at_left_center, w_left)
@@ -155,7 +149,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             return m_right;
         }
 
-        // Unit-singleton snap to avoid over-smearing a point-mass.
         if w_left == 1.0 && (target_index - cum_w_at_left_center) < 0.5 {
             return m_left;
         }
@@ -163,7 +156,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             return m_right;
         }
 
-        // Remove dead zones contributed by unit singletons.
         let dead_left = if w_left == 1.0 { 0.5 } else { 0.0 };
         let dead_right = if w_right == 1.0 { 0.5 } else { 0.0 };
         let weight_toward_right = target_index - cum_w_at_left_center - dead_left;
@@ -179,7 +171,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
 
     #[inline]
     fn inside_pile_strict(target_index: f64, center_cum_w: f64, pile_weight: f64) -> bool {
-        // A “pile” is a centroid representing multiple identical values (singleton && weight>1).
         if pile_weight <= 1.0 {
             return false;
         }
@@ -403,7 +394,6 @@ mod tests {
 
     #[test]
     fn median_between_centroids_even_count() {
-        // With symmetric bracketing, Q(0.5) equals the average of the two middle piles (→ 0.0).
         for num in [1, 2, 3, 10, 20] {
             let mut t = TDigestBuilder::new().max_size(100).build();
             for _ in 0..num {
@@ -438,7 +428,7 @@ mod tests {
         assert_exact("Q(0)", v[0], td.quantile(0.0));
         assert_exact("Q(1)", v[N - 1], td.quantile(1.0));
         for (i, &x) in v.iter().enumerate() {
-            let q = (i as f64 + 0.5) / N as f64; // mid-rank → exact order stat
+            let q = (i as f64 + 0.5) / N as f64;
             assert_exact("Q(mid)", x, td.quantile(q));
         }
     }
@@ -447,7 +437,6 @@ mod tests {
     fn quantile_midrank_is_exact_under_capacity() {
         use crate::tdigest::test_helpers::assert_exact;
 
-        // Sorted training data with ties; N is intentionally far below max_size.
         let v = vec![-2.0, -2.0, -1.0, 0.0, 0.0, 0.0, 3.0, 7.0, 7.0];
         let n = v.len();
         let td = TDigestBuilder::new()
@@ -460,7 +449,7 @@ mod tests {
         assert_exact("Q(0)", v[0], td.quantile(0.0));
         assert_exact("Q(1)", v[n - 1], td.quantile(1.0));
         for (i, &x) in v.iter().enumerate() {
-            let q = (i as f64 + 0.5) / n as f64; // exactness contract point
+            let q = (i as f64 + 0.5) / n as f64;
             assert_exact(&format!("Q(mid-rank exact) [{i}]"), x, td.quantile(q));
         }
     }

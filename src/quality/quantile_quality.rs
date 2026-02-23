@@ -18,7 +18,6 @@ fn quantile_grid_errors(td: &TDigest<f64>, sorted: &[f64]) -> (f64, f64) {
     let mut ks_like = 0.0f64;
     let mut mae = 0.0f64;
 
-    // Exclude exact 0/1 to avoid edge clamping biases; 1..(steps-1) gives (0,1).
     for i in 1..steps {
         let q = (i as f64) / (steps as f64);
         let est = td.quantile(q);
@@ -67,16 +66,14 @@ mod tests {
         const SCALE: ScaleFamily = ScaleFamily::Quad;
         const PREC: Precision = Precision::F64;
 
-        // ---- UPDATE THESE THREE WHEN YOU INTENTIONALLY CHANGE THE ALGO ----
-        const BASE_KS: f64 = 7.261420e-4; // <- pinned from 2026-02-22 run
-        const BASE_MAE: f64 = 3.605881e-5; // <- pinned from 2026-02-22 run
-        const BASE_SCORE: f64 = 0.9452166400891764; // <- pinned from 2026-02-22 run
-        const TOL: f64 = 5e-4; // strict-ish; adjust if you see flakiness
+        const BASE_KS: f64 = 7.261420e-4;
+        const BASE_MAE: f64 = 3.605881e-5;
+        const BASE_SCORE: f64 = 0.9452166400891764;
+        const TOL: f64 = 5e-4;
 
         let r = assess_quantiles_with(DistKind::Mixture, N, MAX_SIZE, SCALE, PREC, SEED);
         print_report("REG/Q[Mixture, k=1000, Quad, F64]", r);
 
-        // symmetric “pin”: any drift beyond TOL fails—even if score improves.
         assert!(
             (r.ks - BASE_KS).abs() <= TOL,
             "KS changed: {} vs {}",
@@ -139,9 +136,9 @@ mod tests {
                         let r = assess_quantiles_with(dist, N, k, scale, prec, SEED);
                         print_report(&tag, r);
                     }
-                    println!(); // spacing between scales
+                    println!();
                 }
-                println!(); // spacing between sizes
+                println!();
             }
             println!(
                 "═══════════════════════════════════════════════════════════════════════════\n"

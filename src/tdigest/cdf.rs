@@ -246,7 +246,6 @@ mod tests {
         let approx = td.cdf(&values);
         assert_eq!(approx.len(), values.len());
 
-        // 1) bounds + 2) monotone
         for i in 0..approx.len() {
             let p = approx[i];
             assert!((0.0..=1.0).contains(&p), "cdf[{}]={} out of [0,1]", i, p);
@@ -255,7 +254,6 @@ mod tests {
             }
         }
 
-        // 3) tails hit ~1%/~99% (allow tiny slack for compression)
         let eps = 1e-6;
         assert!(
             approx[0] <= 0.01 + eps,
@@ -268,7 +266,6 @@ mod tests {
             approx[99]
         );
 
-        // 4) middle rank (~median) should be roughly around 0.5
         let mid = 50;
         assert!(
             (0.49..=0.51).contains(&approx[mid]),
@@ -306,7 +303,6 @@ mod tests {
     fn cdf_midpoint_ecdf_is_exact_at_training_values_under_capacity() {
         use crate::tdigest::test_helpers::assert_exact;
 
-        // Sorted training data with ties; N is intentionally far below max_size.
         let vals = vec![-2.0, -2.0, -1.0, 0.0, 0.0, 0.0, 3.0, 7.0, 7.0];
         let n = vals.len();
         let td = TDigestBuilder::new()
@@ -317,7 +313,7 @@ mod tests {
 
         assert!(n < td.max_size());
 
-        let expected = exact_ecdf_for_sorted(&vals); // midpoint over ties
+        let expected = exact_ecdf_for_sorted(&vals);
         let got = td.cdf(&vals);
         for (i, (&e, &g)) in expected.iter().zip(&got).enumerate() {
             assert_exact(&format!("CDF(midpoint exact @ training value) [{i}]"), e, g);
@@ -328,10 +324,6 @@ mod tests {
     fn cdf_between_two_atomic_centroids_is_flat_step() {
         use crate::tdigest::ScaleFamily;
 
-        // Build two atomic centroids:
-        // - left:  five identical zeros → atomic with w=5 at mean=0.0
-        // - right: seven identical tens → atomic with w=7 at mean=10.0
-        // N = 12 total
         let mut values: Vec<f64> = Vec::new();
         values.extend(std::iter::repeat(0.0).take(5));
         values.extend(std::iter::repeat(10.0).take(7));
@@ -344,28 +336,20 @@ mod tests {
             .merge_sorted(values)
             .expect("no NaNs");
 
-        // Sanity: compressor should coalesce equal means into two centroids.
         assert_eq!(td.centroids().len(), 2, "expected two centroids (0 and 10)");
         assert!((td.centroids()[0].mean_f64() - 0.0).abs() < 1e-12);
         assert!((td.centroids()[1].mean_f64() - 10.0).abs() < 1e-12);
         assert!((td.centroids()[0].weight_f64() - 5.0).abs() < 1e-12);
         assert!((td.centroids()[1].weight_f64() - 7.0).abs() < 1e-12);
 
-        // Probes strictly between the two means.
         let probes = [1.0, 5.0, 9.0];
 
-        // Expected: with correct atomic handling, there is **no** interpolative mass
-        // contributed by either atomic neighbor (left_excl = wl/2, right_excl = wr/2),
-        // so the between-mean CDF is a **flat step** at prefix_left + wl (all of left mass).
-        // Here: prefix_left = 0, wl = 5 ⇒ expected = 5/12.
         let expected_between = 5.0 / 12.0;
 
         let out = td.cdf(&probes);
         assert_eq!(out.len(), probes.len());
 
         for (i, &p) in out.iter().enumerate() {
-            // This assertion FAILS with current code (which only excludes 0.5 for units),
-            // and will PASS after changing CDF span exclusion to subtract w/2 for any atomic.
             assert!(
                 (p - expected_between).abs() <= 1e-9,
                 "cdf({}) = {}, expected flat step {} between atomic centroids",
@@ -375,8 +359,6 @@ mod tests {
             );
         }
 
-        // Optional extra sanity: exact hit at the left centroid mean should be midpoint mass (2.5/12),
-        // while any value just above the left mean should jump to 5/12 (the flat step).
         let exact = td.cdf(&[0.0])[0];
         assert!(
             (exact - (2.5 / 12.0)).abs() <= 1e-12,

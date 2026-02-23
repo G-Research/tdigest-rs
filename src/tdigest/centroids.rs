@@ -188,14 +188,9 @@ mod tests {
     }
 }
 
-/* -------------------------------------------------------------------------
- * Utilities
- * ---------------------------------------------------------------------- */
-
 /// Verify strict increasing order by centroid mean.
 #[inline]
 pub fn is_sorted_strict_by_mean<F: FloatLike + FloatCore>(cs: &[Centroid<F>]) -> bool {
-    // We require strictly increasing means to avoid ambiguous interpolation.
     for w in cs.windows(2) {
         match w[0].mean_f64().partial_cmp(&w[1].mean_f64()) {
             Some(std::cmp::Ordering::Less) => {}

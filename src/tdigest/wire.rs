@@ -1,5 +1,3 @@
-// src/tdigest/wire.rs
-//
 // Canonical TDigest binary wire codec ("TDIG" format).
 //
 // v1/v2 header (56 bytes, little-endian):

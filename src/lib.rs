@@ -21,7 +21,6 @@ pub mod tdigest;
 mod error;
 pub use error::{TdError, TdResult};
 
-// ---- test-only quality modules ----------------------------------------------
 #[cfg(test)]
 pub mod quality {
     pub mod cdf_quality;
@@ -32,7 +31,6 @@ pub mod quality {
 #[cfg(test)]
 pub use crate::quality::quality_base::{print_banner, print_report, print_section};
 
-// ---- jemalloc on linux-gnu (kept intentionally) -----------------------------
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 use jemallocator::Jemalloc;
 
@@ -50,7 +48,7 @@ use pyo3::types::PyModuleMethods;
 /// CPython module entry point.
 #[cfg(feature = "python")]
 #[pymodule]
-#[pyo3(name = "_tdigest_rs")] // ← confirm desired import name
+#[pyo3(name = "_tdigest_rs")]
 fn _tdigest_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     crate::py::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

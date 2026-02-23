@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, Literal, Optional, cast
 
 import base64
 
-# --- native import (fail loudly so tests don't silently pass with None) ---
 try:
     from ._tdigest_rs import TDigest as _NativeTDigest, __version__ as __native_version__
     from ._tdigest_rs import wire_precision_py as _wire_precision_native
@@ -17,14 +16,12 @@ except ModuleNotFoundError as exc:  # pragma: no cover
         "Failed to import the compiled extension '_tdigest_rs'. Build it with: `uv run maturin develop -r -F python`."
     ) from exc
 
-# Fallback for editable/dev installs where importlib.metadata might not see the wheel
 try:  # pragma: no cover
     __version__ = version("tdigest-rs")
 except PackageNotFoundError:  # pragma: no cover
     pass
 
 
-# --- enums --------------------------------------------------------------------
 class ScaleFamily(str, Enum):
     QUAD = "QUAD"
     K1 = "K1"
@@ -38,7 +35,6 @@ class SingletonPolicy(str, Enum):
     EDGES = "edges"
 
 
-# --- helpers ------------------------------------------------------------------
 def _coerce_scale_for_class(scale: ScaleFamily | str) -> str:
     s = scale.value if isinstance(scale, ScaleFamily) else str(scale).strip().upper()
     if s in {"QUAD", "K1", "K2", "K3"}:
@@ -110,7 +106,6 @@ def wire_precision(blob: bytes) -> Literal["f32", "f64"]:
     return _wire_precision_native(bytes(blob))
 
 
-# --- Python-side shim: TDigest.from_array() argument normalization ------------
 _native_from_array_raw: Any = getattr(_NativeTDigest, "from_array", None)
 if _native_from_array_raw is None:  # pragma: no cover
     raise AttributeError("Native TDigest is missing 'from_array'")
@@ -144,7 +139,6 @@ def _from_array_cls(
 
     policy_str = {"off": "off", "use": "use", "edges": "edges"}[m]
 
-    # --- precision / f32_mode reconciliation ---------------------------------
     prec_raw = kwargs.pop("precision", None)
     f32_mode_raw = kwargs.pop("f32_mode", None)
     delta_raw = kwargs.pop("delta", None)
@@ -161,9 +155,8 @@ def _from_array_cls(
             if f32_flag != expected_flag:
                 raise ValueError(f"Conflicting precision arguments: precision={prec_norm!r} and f32_mode={f32_flag!r}")
     else:
-        # No explicit f32_mode provided; derive from precision.
         if prec_norm == "auto":
-            f32_flag = False  # default to f64 backend when auto and no legacy flag
+            f32_flag = False
         else:
             f32_flag = prec_norm == "f32"
 
@@ -298,7 +291,6 @@ setattr(TDigest, "update", _update_patched)
 
 
 def _add_patched(self: _NativeTDigest, values: Any) -> _NativeTDigest:
-    # Native mutates in-place; return self for fluent parity with Java.
     _native_add(self, values)
     return self
 

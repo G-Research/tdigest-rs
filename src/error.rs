@@ -1,4 +1,3 @@
-// src/error.rs
 use core::fmt;
 
 /// Library-wide error for tdigest-rs.

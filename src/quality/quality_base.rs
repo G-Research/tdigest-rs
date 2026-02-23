@@ -16,7 +16,6 @@ pub struct QualityReport {
 impl QualityReport {
     #[inline]
     pub fn from_metrics(n: usize, ks: f64, mae: f64) -> Self {
-        // Same heuristic everywhere so numbers are comparable.
         let score = (-((1200.0 * mae) + (18.0 * ks))).exp();
         QualityReport { n, ks, mae, score }
     }
@@ -97,7 +96,6 @@ pub fn build_digest_sorted(
     scale: ScaleFamily,
     precision: Precision,
 ) -> TDigest<f64> {
-    // Apply input “precision” policy (affects only inputs; TDigest math still in f64).
     if let Precision::F32 = precision {
         for x in &mut data {
             *x = (*x as f32) as f64;

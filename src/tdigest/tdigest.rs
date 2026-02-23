@@ -1,4 +1,3 @@
-// src/tdigest/tdigest.rs
 use crate::{TdError, TdResult};
 use ordered_float::{FloatCore, OrderedFloat};
 
@@ -182,7 +181,6 @@ pub struct TDigestBuilder<F: FloatLike + FloatCore> {
     max_size: usize,
     scale: ScaleFamily,
     policy: SingletonPolicy,
-    // optional seeds
     init_centroids: Option<Vec<Centroid<F>>>,
     init_stats: Option<DigestStats>,
     override_max_size: Option<usize>,
@@ -262,7 +260,6 @@ impl<F: FloatLike + FloatCore> TDigestBuilder<F> {
 
     /// Build the digest, seeding if seeds were provided.
     pub fn build(self) -> TDigest<F> {
-        // If seeded, construct directly from the provided centroids and stats.
         if let (Some(cents), Some(st)) = (self.init_centroids, self.init_stats) {
             let max_size = self.override_max_size.unwrap_or(self.max_size);
             TDigest {
@@ -386,7 +383,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             .build()
     }
 
-    // --- internal metadata setters (small & inlined) ---
     #[inline]
     pub(crate) fn set_sum(&mut self, s: f64) {
         self.sum = s;
@@ -453,7 +449,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
 
         let stream = MergeByMean::from_centroids_and_values(&self.centroids, &sorted_values);
 
-        // Pipeline: Normalize → Slice → Merge(k-limit) → Cap → Assemble → Post
         let compressed: Vec<Centroid<F>> = compress_into(&mut result, self.max_size, stream);
         result.centroids = compressed;
 
@@ -521,7 +516,6 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
     /// Merge multiple digests by k-way merging their centroid runs and sending the result through
     /// the same pipeline used for raw values.
     pub fn merge_digests(digests: Vec<TDigest<F>>) -> TDigest<F> {
-        // Decide defaults by first non-empty digest to keep semantics stable.
         let mut chosen: Option<(usize, ScaleFamily, SingletonPolicy)> = None;
         let mut runs: Vec<&[Centroid<F>]> = Vec::with_capacity(digests.len());
         let mut total_count = 0.0_f64;
@@ -556,10 +550,8 @@ impl<F: FloatLike + FloatCore> TDigest<F> {
             policy: chosen_policy,
         };
 
-        // Producer: k-way merge of centroid runs (no extra coalescing beyond equal-mean heads).
         let merged_stream = KWayCentroidMerge::from_runs(&runs);
 
-        // Same pipeline as values.
         let compressed: Vec<Centroid<F>> =
             compress_into(&mut result, chosen_max_size, merged_stream);
         result.centroids = compressed;
@@ -818,8 +810,6 @@ impl TDigest<f64> {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, WireError> {
         match wire::decode_digest(bytes)? {
             WireDecodedDigest::F64(td) => Ok(td),
-
-            // Upcast f32-backed digest into f64-backed digest.
             WireDecodedDigest::F32(td32) => Ok(td32.cast_precision::<f64>()),
         }
     }
@@ -1240,7 +1230,6 @@ mod tests {
             max_size: 1_000,
         }];
 
-        // Keep these conservative because n is intentionally very large.
         let trials_per_case = 1usize;
         let reps = 3usize;
         let memory_supported = cfg!(all(target_os = "linux", target_env = "gnu"));
@@ -1283,7 +1272,6 @@ mod tests {
                     SingletonPolicy::Use,
                 );
 
-                // Warm-up both strategies before timed reps.
                 let _ = merge_with_strategy(&digests, MergeStrategy::ConcatSort);
                 let _ = merge_with_strategy(&digests, MergeStrategy::HeapStream);
 
@@ -1351,10 +1339,6 @@ mod tests {
             total_trials
         );
 
-        // With max_size=1000 and moderate shard counts, CPU can be mixed:
-        // heap usually wins memory strongly and preserves precision, but may
-        // not always beat concat+sort on wall time. Keep a guard against
-        // pathological regressions while letting this profile stay realistic.
         assert!(
             heap_cpu_total_ns * 100 <= sort_cpu_total_ns * 130,
             "heap total CPU regressed by >30% on this profile (sort_total={} heap_total={})",

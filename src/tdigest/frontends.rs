@@ -1,4 +1,3 @@
-// src/tdigest/frontends.rs
 //! Small, shared parsing & normalization helpers for all front-ends (Python, Polars, JNI, CLI).
 //! Keep this dependency-light and free of PyO3/JNI/Polars types.
 
@@ -54,8 +53,6 @@ fn norm(s: &str) -> String {
     s.trim().to_ascii_lowercase().replace(['_', ' '], "")
 }
 
-/* ----------------------- scale helpers ----------------------- */
-
 pub fn parse_scale_str(raw: Option<&str>) -> Result<ScaleFamily, ParseError> {
     match raw.map(|x| x.trim().to_ascii_lowercase()) {
         None => Ok(ScaleFamily::K2),
@@ -76,8 +73,6 @@ pub fn scale_to_str(s: ScaleFamily) -> &'static str {
     }
 }
 
-/* ----------------- singleton policy helpers ----------------- */
-
 /// Accepts: off | use | edges | (legacy) usewithprotectededges
 pub fn parse_singleton_policy_str(
     kind: Option<&str>,
@@ -97,8 +92,6 @@ pub fn parse_singleton_policy_str(
         Some(v) => Err(ParseError::InvalidPolicy(v)),
     }
 }
-
-/* ---------------------- precision helpers ---------------------- */
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrecisionHint {
@@ -132,8 +125,6 @@ pub fn policy_from_code_edges(code: i32, edges: i32) -> Result<SingletonPolicy, 
     }
 }
 
-/* ---------------------- validation helpers ---------------------- */
-
 /// Shared finite-data guard for training/addition paths across front-ends.
 #[inline]
 pub fn ensure_finite_training_values(values: &[f64]) -> TdResult<()> {
@@ -156,8 +147,6 @@ pub fn validate_quantile_probe(q: f64) -> Result<(), &'static str> {
     }
     Ok(())
 }
-
-/* ---------------------- shared frontend service ---------------------- */
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DigestConfig {
@@ -388,7 +377,6 @@ Cast explicitly before merge (e.g. cast_precision('f64')).",
             )));
         }
 
-        // Empty digest merge is always safe for same precision.
         if self.is_effectively_empty() && !other.is_effectively_empty() {
             *self = other.clone();
             return Ok(());

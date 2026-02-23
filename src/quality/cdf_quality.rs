@@ -11,7 +11,6 @@ fn empirical_cdf_at_grid(sorted: &[f64], ecdf_sorted: &[f64], values: &[f64]) ->
     }
     let mut out = Vec::with_capacity(values.len());
     for &x in values {
-        // count of values <= x
         let idx = match sorted.binary_search_by(|v| v.partial_cmp(&x).unwrap()) {
             Ok(mut j) => {
                 while j + 1 < n && sorted[j + 1] <= x {
@@ -34,7 +33,6 @@ fn cdf_grid_errors(td: &TDigest<f64>, sorted: &[f64]) -> (f64, f64) {
         return (f64::NAN, f64::NAN);
     }
 
-    // Sample a linear grid across the observed data range.
     let steps = 1000usize;
     let (xmin, xmax) = (sorted[0], sorted[n - 1]);
     let span = xmax - xmin;
@@ -100,12 +98,10 @@ mod tests {
         const SCALE: ScaleFamily = ScaleFamily::Quad;
         const PREC: Precision = Precision::F64;
 
-        // ---- BLESSED FROM 2026-02-22 RUN ----
         const BASE_KS: f64 = 1.683400e-3;
         const BASE_MAE: f64 = 4.274473e-5;
         const BASE_SCORE: f64 = 0.9216452700199778;
 
-        // Keep tolerances strict-ish; score tolerance separate due to exp heuristic sensitivity.
         const KS_TOL: f64 = 5e-4;
         const MAE_TOL: f64 = 5e-6;
         const SCORE_TOL: f64 = 1e-3;

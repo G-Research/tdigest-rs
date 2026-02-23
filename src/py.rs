@@ -221,7 +221,6 @@ impl PyTDigest {
     }
 
     pub fn quantile(&self, py: Python<'_>, q: PyObject) -> PyResult<PyObject> {
-        // scalar fast-path
         if let Ok(v) = q.extract::<f64>(py) {
             let out = self.inner.quantile_strict(v).map_err(map_frontend_err)?;
             return Ok(PyFloat::new(py, out).into_any().unbind());
@@ -265,7 +264,6 @@ impl PyTDigest {
     }
 
     pub fn cdf(&self, py: Python<'_>, x: PyObject) -> PyResult<PyObject> {
-        // scalar fast-path
         if let Ok(v) = x.extract::<f64>(py) {
             let out = self.inner.cdf(&[v])[0];
             return Ok(PyFloat::new(py, out).into_any().unbind());
@@ -311,13 +309,11 @@ impl PyTDigest {
     }
 
     pub fn merge(&mut self, other: Bound<'_, PyAny>) -> PyResult<()> {
-        // Single TDigest
         if let Ok(one) = other.extract::<PyRef<PyTDigest>>() {
             self.merge_inner(&one)?;
             return Ok(());
         }
 
-        // Iterable of TDigest
         let iter = PyIterator::from_object(&other).map_err(|_| {
             PyTypeError::new_err("tdigest merge: expected a TDigest or an iterable of TDigest")
         })?;

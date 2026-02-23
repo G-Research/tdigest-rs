@@ -19,7 +19,6 @@ pub mod singleton_policy;
 pub mod tdigest;
 pub mod wire;
 
-// Re-exports for a clean public surface
 pub use self::precision::Precision;
 pub use self::scale::ScaleFamily;
 pub use self::tdigest::{DigestStats, TDigest, TDigestBuilder};

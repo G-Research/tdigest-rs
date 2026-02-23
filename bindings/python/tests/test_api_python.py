@@ -1,4 +1,3 @@
-# bindings/python/tests/test_api_python.py
 import math
 
 import numpy as np
