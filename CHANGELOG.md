@@ -23,6 +23,7 @@ All notable changes to this project are documented in this file.
 - Coherence test path detection was hardened for Windows (`tdigest.exe`, `gradlew.bat`, normalized native arch tags).
 - Coherence test native-library lookup now normalizes `darwin` to `macos` for Java native path compatibility on macOS runners.
 - Updated `tdigest_design.md` and quality-regression baselines to reflect the intentional Stage 4 algorithm change.
+- Removed unsupported `macos-13` from Rust CI test matrix to fix failing CI check configuration.
 
 ### Added
 - Python compatibility methods/properties:

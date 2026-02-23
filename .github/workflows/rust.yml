@@ -24,8 +24,8 @@ jobs:
     name: Test
     strategy:
       matrix:
-        # macos-13 is x86_64 and macos-14 is arm64
-        runner: [ubuntu-latest, macos-13, macos-14, windows-latest]
+        # macos-14 is currently the supported macOS runner in this repo.
+        runner: [ubuntu-latest, macos-14, windows-latest]
       fail-fast: false
     runs-on: ${{ matrix.runner }}
     steps:
