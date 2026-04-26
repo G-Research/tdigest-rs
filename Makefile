@@ -50,6 +50,13 @@ PY_DIR          := bindings/python
 PY_PKG_DIR      := $(PY_DIR)/tdigest_rs
 PY_TESTS_DIR    := $(PY_DIR)/tests
 
+# Upstream tdigest-rs review compatibility snapshot
+COMPAT_ROOT        := compat/tdigest-rs-upstream
+COMPAT_PY_DIR      := $(COMPAT_ROOT)/bindings/python
+COMPAT_TESTS_DIR   := $(COMPAT_PY_DIR)/tests
+COMPAT_BENCH       := $(COMPAT_PY_DIR)/benchmarks/run.py
+COMPAT_ADAPTER_DIR := $(COMPAT_ROOT)/python
+
 # Java layout (wrapper-only — no system Gradle fallback)
 JAVA_SRC        := bindings/java
 JAVA_BUILD_REL  := build
@@ -134,7 +141,7 @@ JAVA_WRAPPER_CHECK:
 # ==============================================================================
 .PHONY: help setup clean \
         build build-rust build-python build-java \
-        test rust-test py-test java-test naming-hygiene \
+        test rust-test py-test java-test compat-test compat-bench naming-hygiene \
         lint setup-hooks \
         smoke-rust-cli smoke-wheel  \
         release-rust release-wheel release-jar release \
@@ -214,14 +221,14 @@ build-java: JAVA_WRAPPER_CHECK
 # ==============================================================================
 # Tests
 # ==============================================================================
-.PHONY: test rust-test py-test java-test naming-hygiene
+.PHONY: test rust-test py-test java-test compat-test compat-bench naming-hygiene
 
 test: naming-hygiene rust-test java-test py-test
 	@echo "✅ all unit tests passed"
 
 naming-hygiene:
 	$(call banner,Naming hygiene: reject legacy identifiers)
-	@! rg -n --hidden --glob '!.git/**' --glob '!target/**' '(gr[-_]tdigest|_gr[_]tdigest|ingolfured/gr[-]tdigest|gr[.]tdigest)' .
+	@! rg -n --hidden --glob '!.git' --glob '!.git/**' --glob '!target/**' '(gr[-_]tdigest|_gr[_]tdigest|ingolfured/gr[-]tdigest|gr[.]tdigest)' .
 
 rust-test:
 	$(CARGO) test -- --quiet
@@ -229,6 +236,12 @@ rust-test:
 # Explicit path to bindings/python/tests (pytest discovers from pyproject too)
 py-test: build-python
 	$(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q "$(PY_TESTS_DIR)" "$(INTEG_TESTS_DIR)"
+
+compat-test:
+	PYTHONPATH="$(PWD)/$(COMPAT_ADAPTER_DIR):$(PWD)/$(COMPAT_PY_DIR):$${PYTHONPATH:-}" $(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python -m pytest -q "$(COMPAT_TESTS_DIR)"
+
+compat-bench:
+	PYTHONPATH="$(PWD)/$(COMPAT_ADAPTER_DIR):$(PWD)/$(COMPAT_PY_DIR):$${PYTHONPATH:-}" $(UV_ENV) $(UV) run --project "$(PY_DIR)" --no-sync python "$(COMPAT_BENCH)"
 
 java-test: JAVA_WRAPPER_CHECK
 	@GRADLE_USER_HOME="$(GRADLE_USER_HOME)" "$(GRADLE)" --no-daemon --console=plain -p "$(JAVA_SRC)" test
@@ -404,6 +417,8 @@ help:
 	@printf "  %-22s %s\n" "build-java"     "Build Java JAR with Gradle (clean+jar)"
 	@printf "  %-22s %s\n" "test"           "Run tests: rust + java + python"
 	@printf "  %-22s %s\n" "java-test"      "Run Java/JNI tests via Gradle"
+	@printf "  %-22s %s\n" "compat-test"    "Run copied upstream Python compatibility tests"
+	@printf "  %-22s %s\n" "compat-bench"   "Run copied upstream benchmark manually"
 	@printf "  %-22s %s\n" "lint"           "Autofix (ruff/clippy/format) + mypy + rustdoc (deny warnings)"
 	@printf "  %-22s %s\n" "clean"          "Remove ALL build artifacts (Rust/Gradle/Python)"
 	@printf "\n$(STYLE_BOLD)Releases (release profile)$(STYLE_RESET)\n"

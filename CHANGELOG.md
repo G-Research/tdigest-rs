@@ -22,6 +22,9 @@ All notable changes to this project are documented in this file.
 - Updated `tdigest_design.md` and quality-regression baselines to reflect the intentional Stage 4 algorithm change.
 
 ### Added
+- Maintainer internals docs under `docs/` for the compressor pipeline, query kernels, quality checks, wire/precision behavior, and upstream review compatibility workflow.
+- Byte-for-byte copied upstream Python test and benchmark snapshot under `compat/tdigest-rs-upstream/` with provenance/checksum metadata.
+- Dedicated `make compat-test` and `make compat-bench` targets using an isolated legacy `tdigest_rs` adapter for copied upstream-suite review parity.
 - Python compatibility methods/properties:
   - `from_means_weights(...)`
   - `update(...)` returning a new digest
