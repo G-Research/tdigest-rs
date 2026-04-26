@@ -1,0 +1,48 @@
+default_language_version:
+  python: python3.12
+
+fail_fast: true
+minimum_pre_commit_version: "4.3.0"
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: check-json
+      - id: pretty-format-json
+        args: ["--autofix"]
+
+  - repo: local
+    hooks:
+      - id: require-changelog
+        name: require changelog update
+        language: system
+        entry: bash scripts/check_changelog_update.sh
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: make-build
+        name: make build
+        language: system
+        entry: bash -lc 'make build'
+        pass_filenames: false
+        stages: [manual]
+
+      - id: make-lint
+        name: make lint
+        language: system
+        entry: bash -lc 'make lint'
+        pass_filenames: false
+        stages: [manual]
+
+      - id: make-test
+        name: make test
+        language: system
+        entry: bash -lc 'make test'
+        pass_filenames: false
+        stages: [manual]

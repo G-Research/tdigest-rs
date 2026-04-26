@@ -1,0 +1,212 @@
+// bindings/java/build.gradle
+
+plugins {
+  id 'java'
+  id 'maven-publish'
+  id 'signing'
+}
+
+repositories { mavenCentral() }
+
+dependencies {
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+/* -------- Read version from ../../Cargo.toml (no external deps) -------- */
+def repoRoot  = file('../../')
+def cargoToml = new File(repoRoot, 'Cargo.toml')
+if (!cargoToml.exists()) {
+  throw new GradleException("Cargo.toml not found at ${cargoToml.absolutePath}")
+}
+def cargoText = cargoToml.getText('UTF-8')
+
+// Grab the version from the first [package] block's version="..."
+def cargoVersion = {
+  def inPkg = false
+  for (line in cargoText.readLines()) {
+    if (line =~ /^\s*\[package\]\s*$/) { inPkg = true; continue }
+    if (inPkg && (line =~ /^\s*\[.*\]\s*$/)) break
+    if (inPkg) {
+      def m = (line =~ /^\s*version\s*=\s*"([^"]+)"\s*$/)
+      if (m.find()) return m.group(1)
+    }
+  }
+  throw new GradleException("Unable to find version in [package] of Cargo.toml")
+}.call()
+
+/* -------- Coordinates -------- */
+group   = 'com.gresearch.tdigest'
+version = cargoVersion
+
+/* -------- Java target (broad compatibility) -------- */
+java {
+  sourceCompatibility = JavaVersion.VERSION_11
+  targetCompatibility = JavaVersion.VERSION_11
+  withSourcesJar()
+  withJavadocJar()
+}
+tasks.withType(JavaCompile).configureEach { options.release = 11 }
+
+/* -------- Paths -------- */
+def targetRel = new File(repoRoot, 'target/release')
+def genResDir = new File(buildDir, 'generated-resources')
+
+/* -------- Build native with feature `java` -------- */
+tasks.register('cargoBuild', Exec) {
+  workingDir repoRoot
+  commandLine 'cargo', 'build', '--release', '--features', 'java'
+  standardOutput = System.out
+  errorOutput    = System.err
+}
+
+/* -------- Copy native into JAR resources (canonical name only) -------- */
+/* Library base name must match System.loadLibrary("tdigest_rs") */
+def libBase = "tdigest_rs"
+def os = org.gradle.internal.os.OperatingSystem.current()
+def libFile = os.isWindows() ? "${libBase}.dll"
+           : os.isMacOsX()   ? "lib${libBase}.dylib"
+                              : "lib${libBase}.so"
+
+tasks.register('copyNative') {
+  dependsOn tasks.named('cargoBuild')
+  outputs.dir(genResDir)
+  // Rust/JNI symbol changes are not tracked by Gradle inputs here; always refresh.
+  outputs.upToDateWhen { false }
+  doLast {
+    def src = new File(targetRel, libFile)
+    if (!src.exists()) {
+      throw new GradleException("Native not found: ${src.absolutePath} — ensure Cargo built the cdylib named '${libBase}'.")
+    }
+
+    def arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    arch = (arch in ['x86_64','amd64']) ? 'x86_64'
+        : (arch in ['aarch64','arm64']) ? 'aarch64'
+        : arch
+    def plat = os.isWindows() ? 'windows' : (os.isMacOsX() ? 'macos' : 'linux')
+
+    def dest = new File(genResDir, "META-INF/native/${plat}-${arch}")
+    dest.mkdirs()
+
+    copy { from src; into dest }
+    println "Packaged native -> ${new File(dest, libFile).absolutePath}"
+  }
+}
+
+/* -------- Source layout: Java + generated resources -------- */
+sourceSets {
+  main {
+    java {
+      srcDirs = ['src']
+      exclude 'test/**'
+    }
+    resources.srcDirs = [genResDir]   // include META-INF/native/... in jar
+  }
+}
+
+/* -------- Jar configuration -------- */
+tasks.named('processResources').configure { dependsOn tasks.named('copyNative') }
+
+tasks.named('jar').configure {
+  dependsOn tasks.named('copyNative')
+  manifest { attributes('Main-Class': 'com.gresearch.SmokeMain') }
+  doLast {
+    def jarFile = archiveFile.get().asFile
+    def mb = jarFile.length() / (1024.0 * 1024.0)
+    println String.format("Built JAR: %s (%.2f MB)", jarFile.absolutePath, mb)
+  }
+}
+
+tasks.named('sourcesJar').configure {
+  // sourcesJar includes sourceSet resources; make dependency explicit for Gradle validation.
+  dependsOn tasks.named('copyNative')
+}
+
+tasks.named('test').configure {
+  dependsOn tasks.named('copyNative')
+  useJUnitPlatform()
+  if ((JavaVersion.current().majorVersion as int) >= 22) {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+  }
+}
+
+/* -------- Smoke test: run SmokeMain from the built JAR -------- */
+tasks.register('smoke', JavaExec) {
+  dependsOn tasks.named('jar')
+  def jarTask = tasks.named('jar').get()
+  classpath files(jarTask.archiveFile)
+  mainClass = 'com.gresearch.SmokeMain'
+  if ((JavaVersion.current().majorVersion as int) >= 22) {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+  }
+}
+
+/* -------- Dev-run without re-jar (fast iteration) -------- */
+tasks.register('runSmoke', JavaExec) {
+  dependsOn tasks.named('copyNative'), tasks.named('classes'), tasks.named('processResources')
+  classpath sourceSets.main.runtimeClasspath
+  mainClass = 'com.gresearch.SmokeMain'
+  if ((JavaVersion.current().majorVersion as int) >= 22) {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+  }
+}
+
+/* -------- Clean generated resources too -------- */
+tasks.named('clean').configure { doLast { delete genResDir } }
+
+/* -------- Publishing (optional) -------- */
+def mavenRepoUrl = providers.environmentVariable("MAVEN_REPOSITORY_URL").orNull
+def mavenUsername = providers.environmentVariable("MAVEN_USERNAME").orNull
+def mavenPassword = providers.environmentVariable("MAVEN_PASSWORD").orNull
+def mavenSigningKey = providers.environmentVariable("MAVEN_SIGNING_KEY").orNull
+def mavenSigningPassword = providers.environmentVariable("MAVEN_SIGNING_PASSWORD").orNull
+
+publishing {
+  publications {
+    mavenJava(MavenPublication) {
+      from components.java
+      artifactId = "tdigest-rs"
+      pom {
+        name = "tdigest-rs"
+        description = "Rust TDigest with Python, Polars and JNI"
+        url = "https://github.com/G-Research/tdigest-rs"
+        licenses {
+          license {
+            name = "Apache License 2.0"
+            url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+          }
+        }
+        developers {
+          developer {
+            id = "ingolfured"
+            name = "Ingolfur Edvardsson"
+          }
+        }
+        scm {
+          connection = "scm:git:git://github.com/G-Research/tdigest-rs.git"
+          developerConnection = "scm:git:ssh://github.com:G-Research/tdigest-rs.git"
+          url = "https://github.com/G-Research/tdigest-rs"
+        }
+      }
+    }
+  }
+  repositories {
+    if (mavenRepoUrl != null && !mavenRepoUrl.isBlank()) {
+      maven {
+        name = "release"
+        url = uri(mavenRepoUrl)
+        credentials {
+          username = mavenUsername
+          password = mavenPassword
+        }
+      }
+    }
+  }
+}
+
+signing {
+  if (mavenSigningKey != null && !mavenSigningKey.isBlank()) {
+    useInMemoryPgpKeys(mavenSigningKey, mavenSigningPassword)
+    sign publishing.publications.mavenJava
+  }
+}
