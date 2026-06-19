@@ -26,6 +26,10 @@ dev = [
     "scipy",
     "ruff",
 ]
+gpu = [
+    "torch",
+    "numpy",
+]
 
 [tool.hatch.envs.dev]
 features = ["dev"]
