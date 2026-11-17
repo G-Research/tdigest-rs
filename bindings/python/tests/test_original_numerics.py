@@ -9,6 +9,7 @@ import pickle
 import numpy as np
 import pytest
 
+from parity_bits import assert_float_bits
 from tdigest_rs import TDigest
 
 REFERENCE = json.loads((Path(__file__).parent / "data/upstream_numerical_golden.json").read_text())
@@ -68,11 +69,11 @@ def test_upstream_numerics_bit_for_bit(case):
             assert op == "from_array"
     assert digest.means.dtype == dtype
     assert digest.weights.dtype == np.uint32
-    assert [struct.pack(">d", m).hex() for m in digest.means] == case["means"]
+    assert_float_bits(digest.means, "".join(case["means"]))
     assert digest.weights.tolist() == case["weights"]
-    assert struct.pack(">d", digest.median()).hex() == case["median"]
+    assert_float_bits(digest.median(), case["median"])
     for q_bits, expected in case["quantiles"]:
         (q,) = struct.unpack(">d", bytes.fromhex(q_bits))
-        assert struct.pack(">d", digest.quantile(q)).hex() == expected
+        assert_float_bits(digest.quantile(q), expected)
     for lo, hi, expected in case["trimmed_means"]:
-        assert struct.pack(">d", digest.trimmed_mean(lo, hi)).hex() == expected
+        assert_float_bits(digest.trimmed_mean(lo, hi), expected)

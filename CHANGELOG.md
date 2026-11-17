@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Compare legacy arithmetic NaNs portably while checking all other bits against 0.1.0. Cover two-singleton and zero-heavy shard merges in the published-wheel fixture.
+
 * Deprecate Python delta and default constructors and restore the published 0.1.0 arithmetic, merge order and two-array pickle semantics. Empty digests can be copied and pickled. Weight overflow and unequal input lengths raise `ValueError`. Use `max_size=` for the capacity digest.
 
 * Preserve the original test package as an exact rename in the release diff.

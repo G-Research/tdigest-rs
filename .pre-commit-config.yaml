@@ -15,7 +15,7 @@ repos:
       - id: check-json
       - id: pretty-format-json
         # These independent fixtures and receipts have checksum-bound bytes.
-        exclude: '^(bindings/python/tests/data/(upstream_numerical_golden|published_0_1_0_pickle_golden)\.json|compat/published-pickle/PROVENANCE\.json|compat/numerical-review/original-rust/oracle/.*\.json)$'
+        exclude: '^(bindings/python/tests/data/(upstream_numerical_golden|published_0_1_0_pickle_golden|delta_wheel_parity)\.json|compat/published-pickle/PROVENANCE\.json|compat/numerical-review/original-rust/oracle/.*\.json)$'
         args: ["--autofix"]
 
   - repo: local

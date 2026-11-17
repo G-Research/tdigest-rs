@@ -9,11 +9,13 @@ import struct
 import numpy as np
 import pytest
 
+from parity_bits import assert_float_bits
 from tdigest_rs import TDigest
 
 FIXTURE = Path(__file__).parent / "data" / "delta_wheel_parity.json"
 DATASETS = ("tied", "zero_heavy", "signed_zero", "nonfinite", "tiny", "unsorted_weighted")
-DELTAS = (7, 30, 300)
+CASES = [(name, dtype, delta) for name in DATASETS for dtype in (np.float32, np.float64) for delta in (7, 30, 300)]
+CASES += [("two_singletons", np.float64, 300), ("zero_heavy_chain", np.float32, 300)]
 PROBES = (0, 0.001, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999, 1)
 TRIMS = ((0, 1), (0.1, 0.9), (0.49, 0.51), (0.5, 0.5))
 
@@ -29,6 +31,24 @@ def snapshot(d):
 
 
 def stages(dataset, dtype, delta):
+    if dataset == "two_singletons":
+        left = TDigest.from_array(np.array([1], dtype=dtype), delta)
+        right = TDigest.from_array(np.array([2], dtype=dtype), delta)
+        yield "merge_at_900", left.merge(right, 900)
+        return
+    if dataset == "zero_heavy_chain":
+        # Permute a grid of 8,000 distinct, exactly representable values among
+        # 12,000 zeros. Integer arithmetic fixes the input bits on every CPU.
+        ranks = np.arange(20_000, dtype=np.int32) * 997 % 20_000
+        arr = np.zeros(ranks.size, dtype=dtype)
+        smooth = ranks >= 12_000
+        arr[smooth] = (2 * (ranks[smooth] - 12_000) - 5999) / 8192
+        shards = [TDigest.from_array(part, delta) for part in np.split(arr, 8)]
+        merged = shards[0]
+        for count, shard in enumerate(shards[1:], start=2):
+            merged = merged.merge(shard, delta)
+            yield f"merge_{count}_shards", merged
+        return
     if dataset == "tied":
         values = np.arange(161) * 29 % 9 - 4
     elif dataset == "zero_heavy":
@@ -65,9 +85,7 @@ def stages(dataset, dtype, delta):
     yield "deepcopy", copy.deepcopy(merged)
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("delta", DELTAS)
-@pytest.mark.parametrize("dataset", DATASETS)
+@pytest.mark.parametrize("dataset,dtype,delta", CASES)
 def test_delta_matches_published_wheel_at_each_stage(dataset, delta, dtype):
     expected = json.loads(FIXTURE.read_text())["cases"][f"{dataset}-{dtype.__name__}-{delta}"]
     actual = dict(stages(dataset, dtype, delta))
@@ -76,7 +94,13 @@ def test_delta_matches_published_wheel_at_each_stage(dataset, delta, dtype):
         assert digest.means.dtype == dtype
         assert digest.weights.dtype == np.uint32
         state = expected[stage]
-        assert snapshot(digest) == (expected[state] if isinstance(state, str) else state), stage
+        if isinstance(state, str):
+            state = expected[state]
+        assert_float_bits(digest.means, state["means"], np.dtype(dtype).newbyteorder("<"))
+        assert digest.weights.astype("<u4", copy=False).tobytes().hex() == state["weights"], stage
+        assert_float_bits(digest.median(), state["median"])
+        assert_float_bits([digest.quantile(q) for q in PROBES], "".join(state["quantiles"]))
+        assert_float_bits([digest.trimmed_mean(lo, hi) for lo, hi in TRIMS], "".join(state["trimmed_means"]))
 
 
 def test_equal_merge_heads_continue_the_current_run():

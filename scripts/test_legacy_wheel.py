@@ -59,6 +59,7 @@ def stage_compatibility_tests(root: Path, temporary: Path) -> tuple[Path, Path]:
     parity = temporary / "parity"
     (parity / "data").mkdir(parents=True)
     for name in (
+        "parity_bits.py",
         "test_original_numerics.py",
         "test_delta_wheel_parity.py",
         "test_legacy_compatibility.py",
