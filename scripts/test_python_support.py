@@ -44,7 +44,7 @@ MATRIX = (
 )
 # Coverage inventory for the staged suites in this revision. Keep source-build
 # totals derived from these values, and reject failures/skips independently.
-COMPATIBILITY_CASES = 208
+COMPATIBILITY_CASES = 247
 MODERN_CASES = 236
 NUMPY_ONLY_CASES = 123
 

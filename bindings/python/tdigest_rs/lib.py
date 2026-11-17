@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from abc import ABC
 from dataclasses import dataclass
 from functools import cached_property
@@ -15,6 +16,15 @@ from .tdigest_rs import _TDigestInternal32, _TDigestInternal64  # type: ignore
 
 NpFloatArr = npt.NDArray[Union[np.float32, np.float64]]
 _TDigestInternal = Union[_TDigestInternal32, _TDigestInternal64]
+
+
+_DELTA_DEPRECATION = (
+    "Building a TDigest with `delta`, or with neither `delta` nor `max_size`, is deprecated "
+    "and will be removed in a future release. It runs the tdigest-rs 0.1.0 algorithm, which "
+    "is less accurate than the `max_size` digest and is kept only temporarily so that users "
+    "can migrate. Pass `max_size` instead, for example `TDigest.from_array(values, max_size=200)`. "
+    "Quantiles from `max_size` are not identical to those from `delta`."
+)
 
 
 @dataclass
@@ -47,10 +57,11 @@ class TDigest(ABC):
         return self._digest.quantile(q)
 
     def cast_precision(self, precision: str) -> TDigest:
-        target = {"f32": _TDigestInternal32, "f64": _TDigestInternal64}.get(precision)
-        if target is None:
-            raise ValueError("precision must be 'f32' or 'f64'")
-        return type(self)(self._digest.cast(target))
+        if precision == "f32":
+            return type(self)(self._digest.cast_f32())
+        if precision == "f64":
+            return type(self)(self._digest.cast_f64())
+        raise ValueError("precision must be 'f32' or 'f64'")
 
     def median(self) -> float:
         return self._digest.median()
@@ -70,6 +81,7 @@ class TDigest(ABC):
             return _ModernDigest.from_array(arr, max_size=max_size, **options)
         if options:
             raise TypeError("specify max_size to use modern constructor options")
+        warnings.warn(_DELTA_DEPRECATION, DeprecationWarning, stacklevel=2)
         internal = cls._get_internal_cls(arr)
         return cls(internal.from_array(arr, DEFAULT_DELTA if delta is _UNSET else delta))
 
@@ -81,6 +93,7 @@ class TDigest(ABC):
             return _ModernDigest.from_means_weights(arr, weights, max_size=max_size, **options)
         if options:
             raise TypeError("specify max_size to use modern constructor options")
+        warnings.warn(_DELTA_DEPRECATION, DeprecationWarning, stacklevel=2)
         internal = cls._get_internal_cls(arr)
         return cls(internal.from_means_weights(arr, weights, DEFAULT_DELTA if delta is _UNSET else delta))
 
@@ -90,9 +103,10 @@ class TDigest(ABC):
             return _ModernDigest.from_dict(d)
         means = np.array(d["means"])
         weights = np.array(d["weights"])
+        internal = cls._get_internal_cls(means)
         if means.shape == weights.shape == (0,) and weights.dtype == np.uint32:
-            return cls(cls._get_internal_cls(means).empty(DEFAULT_DELTA))
-        return cls.from_means_weights(arr=means, weights=weights)
+            return cls(internal.empty())
+        return cls(internal.from_means_weights(means, weights, DEFAULT_DELTA))
 
     def to_dict(self) -> Dict[str, Any]:
         return {"means": self.means, "weights": self.weights}
@@ -128,7 +142,8 @@ class TDigest(ABC):
                 raise TypeError(f"TDigest is not implemented for arr with type {arr.dtype}")
 
     def update(self, buffer: NpFloatArr, delta: float = DEFAULT_DELTA, merge_delta: float = DEFAULT_DELTA) -> "TDigest":
-        buffer_digest = TDigest.from_array(buffer, delta)
+        internal = self._get_internal_cls(buffer)
+        buffer_digest = TDigest(internal.from_array(buffer, delta))
         return self.merge(buffer_digest, merge_delta)
 
 

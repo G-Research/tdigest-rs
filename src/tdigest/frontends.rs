@@ -186,21 +186,6 @@ impl DigestConfig {
         }
         builder.build()
     }
-
-    #[cfg(feature = "python")]
-    pub(crate) fn rebuild_pair<F: FloatLike + FloatCore>(
-        self,
-        a: &TDigest<F>,
-        b: &TDigest<F>,
-    ) -> TdResult<TDigest<F>> {
-        let (means, weights): (Vec<_>, Vec<_>) = a
-            .centroids()
-            .iter()
-            .chain(b.centroids())
-            .map(|c| (c.mean(), c.weight_f64()))
-            .unzip();
-        self.empty()?.merge_weighted_unsorted(&means, &weights)
-    }
 }
 
 fn validate_delta_config(config: DigestConfig) -> Result<(), FrontendError> {

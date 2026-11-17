@@ -454,33 +454,6 @@ impl PyTDigest {
         Ok(slf.clone())
     }
 
-    // The original Python merge treats compressed means as fresh weighted observations
-    // when the caller changes delta. Preserve that rounding and the extrema it implies.
-    #[pyo3(signature = (other, delta))]
-    fn _rebuild_pair(&self, py: Python<'_>, other: &Self, delta: Option<f64>) -> PyResult<Self> {
-        let (scale, policy) = resolve_delta_mode_defaults(None, None, None, delta)?;
-        let config = DigestConfig {
-            max_size: 1000,
-            scale,
-            policy,
-            delta,
-        };
-        let inner = py
-            .detach(|| match (&self.inner, &other.inner) {
-                (FrontendDigest::F32(a), FrontendDigest::F32(b)) => {
-                    Ok(FrontendDigest::F32(config.rebuild_pair(a, b)?))
-                }
-                (FrontendDigest::F64(a), FrontendDigest::F64(b)) => {
-                    Ok(FrontendDigest::F64(config.rebuild_pair(a, b)?))
-                }
-                _ => Err(FrontendError::IncompatibleMerge(
-                    "cannot merge digests with different mean precision".into(),
-                )),
-            })
-            .map_err(map_frontend_err)?;
-        Ok(Self { inner })
-    }
-
     /// Midpoint CDF: mass below plus half tied mass, divided by total mass. NaN probes return NaN; infinities give 0/1 for nonempty state. Containers follow quantile; integer probes produce floating probabilities.
     pub fn cdf(&self, py: Python<'_>, x: Py<PyAny>) -> PyResult<Py<PyAny>> {
         if x.bind(py).is_instance_of::<PyFloat>() || x.bind(py).is_instance_of::<PyInt>() {

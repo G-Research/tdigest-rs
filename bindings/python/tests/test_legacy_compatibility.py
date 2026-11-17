@@ -52,7 +52,7 @@ def test_old_dictionary_state_and_defaults_remain_supported():
     state = {"means": np.array([0, 10], dtype=np.float32), "weights": np.array([90, 10], dtype=np.uint32)}
     digest = TDigest.__new__(TDigest)
     digest.__setstate__(state)
-    assert digest.median() == digest.quantile(0.5) == 0
+    assert digest.median() == digest.quantile(0.5) == 1
     assert set(digest.to_dict()) == {"means", "weights"}
 
 
@@ -61,9 +61,9 @@ def test_original_float32_weights_are_never_rounded_to_float32():
     assert digest.weights.tolist() == [16_777_217]
 
 
-def test_delta_uses_modern_lower_tail_interpolation():
+def test_delta_uses_published_lower_tail_interpolation():
     digest = TDigest.from_array(np.array([1.0, 2.0]))
-    assert digest.quantile(0.1) == 1.0
+    assert digest.quantile(0.1) == float.fromhex("0x1.6666666666667p-1")
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -75,3 +75,22 @@ def test_original_array_and_weight_argument_contract(dtype):
     digest = TDigest.from_array(np.array([1.0, 2.0], dtype=dtype))
     assert digest.means is digest.means  # Original cached_property behavior.
     assert set(digest.__getstate__()) == {"means", "weights"}
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_empty_delta_round_trips_and_mismatched_arrays(dtype):
+    empty = TDigest.from_array(np.array([np.nan], dtype=dtype))
+    for restored in (
+        copy.copy(empty),
+        copy.deepcopy(empty),
+        pickle.loads(pickle.dumps(empty)),
+        TDigest.from_dict(empty.to_dict()),
+    ):
+        assert len(restored) == 0
+        assert restored.means.dtype == dtype
+        assert restored.median() == 0.0
+    with pytest.raises(ValueError, match="non-empty"):
+        TDigest.from_means_weights(empty.means, empty.weights)
+    for n, m in ((0, 1), (2, 0), (2, 1), (1, 2)):
+        with pytest.raises(ValueError, match="length"):
+            TDigest.from_means_weights(np.zeros(n, dtype=dtype), np.ones(m, dtype=np.uint32))

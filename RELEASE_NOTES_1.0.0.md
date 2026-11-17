@@ -1,6 +1,6 @@
 # Reviewing tdigest-rs 1.0
 
-tdigest-rs 1.0 adds native Polars aggregation and batch CDF queries backed by the same Rust core used by Python and Java. Existing Python code can keep its `tdigest_rs` import and `delta=` calls. Quantile estimates can change on upgrade, especially near the tails or when one value carries most of the weight.
+tdigest-rs 1.0 adds native Polars aggregation and batch CDF queries backed by the same Rust core used by Python and Java. Python calls that use `delta=` or omit both sizing arguments retain the published 0.1.0 numerical results. The two public constructors emit a `DeprecationWarning` for these calls. To migrate, pass `max_size=`, for example `TDigest.from_array(values, max_size=200)`. Quantile estimates can change when switching modes, especially near the tails or when one value carries most of the weight.
 
 ## What changes for existing Python code?
 
@@ -34,17 +34,18 @@ print(combined.median(), combined.quantile(0.95))
 
 </details>
 
-Loading a 0.1.0 pickle rebuilds the digest from its stored means and weights. Subsequent queries use the 1.0 quantile rule. Migration tests cover 32 published-wheel states. Rust callers using `tdigest_core` should move to the root `tdigest-rs` crate and handle checked operations.
+In delta mode, loading a 0.1.0 pickle, copying a digest or loading its dictionary rebuilds the stored means and weights at the original default `delta=300`. The result matches the published wheel's reload, which can recluster centroids built at another delta. Direct `from_means_weights` calls consume pairs in the supplied order. The compatibility tests compare the exact bits of both arrays, quantiles and trimmed means, including 32 pickles from the published wheel.
 
-## Numerical changes
+Three edge cases have explicit handling. Empty digests can be copied and pickled. A total weight above `u32::MAX` and inputs with different lengths each raise `ValueError`. Rust callers using `tdigest_core` should move to the root `tdigest-rs` crate and handle checked operations.
 
-| Same Python call with `delta=300` | 0.1.0 | 1.0 |
+## Quantiles when migrating to capacity mode
+
+| Python example | 0.1.0 and 1.0 with `delta=300` | 1.0 with `max_size=200` |
 | --- | ---: | ---: |
 | P10 of two observations, 1 and 2 | 0.7 | 1.0 |
 | Median of values 0 and 10 supplied with weights 90 and 10 | 1.0 | 0.0 |
 
-- **0.1.0** interpolates between neighboring centroid means. Near the lower tail, that line can extend below the smallest observation, as it does for P10 above.
-- **1.0** returns the observed value when a quantile lies strictly inside its point mass. That places the weighted median at zero in the second example. Between two point masses the exact boundary gives their midpoint. Inside a centroid that combines distinct values, the estimate interpolates.
+The original algorithm interpolates between neighboring centroid means, including across repeated observations. Near the lower tail it can extrapolate below the smallest observation. Capacity mode returns the observed value inside a point mass and interpolates inside a centroid that combines distinct values.
 
 **What can you choose?** With `max_size=`, `singleton_policy="edges"` protects up to `pin_per_side` distinct values at each tail during compression. With `"off"`, the compressor can combine those values. The query rule is the same in both cases. For the integers 0–99, the 1.75th percentile lands in an interpolated range with protection off and inside the observed value 1 with the first three tail values protected.
 
@@ -101,14 +102,12 @@ Python 3.12.15 and NumPy 1.26.4 on one logical CPU of a Ryzen 9 9950X3D. Each bu
 
 | Operation | 0.1.0, `delta=300` | 1.0, `delta=300` | 1.0, `max_size=146` |
 | --- | ---: | ---: | ---: |
-| Initialize from the array | 108.0 ms | 30.3 ms | 29.9 ms |
-| Query the median | 109 ns | 109 ns | 56 ns |
-| Query P99 | 145 ns | 112 ns | 77 ns |
+| Initialize from the array | 108.0 ms | 20.1 ms | 29.9 ms |
+| Query the median | 109 ns | 90 ns | 56 ns |
+| Query P99 | 145 ns | 114 ns | 77 ns |
 | Query the CDF for 65,536 values in one call | Unavailable | Unavailable | 2.56 ms |
 
-- **Initialization** was about 3.6× faster. At `delta=300`, P99 fell from 145 to 112 ns and median latency was essentially unchanged.
-- **CDF** is available through `max_size=` in 1.0. There is no equivalent 0.1.0 operation to time.
-- **Merge time** for two prebuilt 146-centroid digests with `delta=300` rose from 3.22 to 9.28 µs. [Timing samples](docs/upstream-1.0.0/release-timings.csv)
+Merging two prebuilt 146-centroid digests at `delta=300` took 3.22 µs on the published wheel and 2.81 µs on the 1.0 release build. [Timing samples](docs/upstream-1.0.0/release-timings.csv)
 
 ## CDF in a Polars group
 

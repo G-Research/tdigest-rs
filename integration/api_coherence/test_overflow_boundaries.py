@@ -11,7 +11,7 @@ from tdigest_rs import TDigest as OriginalDigest
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_original_uint32_limits_and_float_overflow_raise_value_errors(dtype):
+def test_original_uint32_limits_and_published_float_overflow(dtype):
     maximum = np.iinfo(np.uint32).max
     with pytest.raises(ValueError, match="overflow"):
         OriginalDigest.from_means_weights(
@@ -30,14 +30,10 @@ def test_original_uint32_limits_and_float_overflow_raise_value_errors(dtype):
     huge = np.finfo(dtype).max
     means = np.array([huge / 2, huge], dtype=dtype)
     weights = np.array([10, 10], dtype=np.uint32)
-    if dtype == np.float64:
-        with pytest.raises(ValueError, match="overflow"):
-            OriginalDigest.from_means_weights(means, weights)
-    else:
-        # Modern sums are Float64 even with Float32 mean storage.
-        extreme = OriginalDigest.from_means_weights(means, weights)
-        assert np.isfinite(extreme.median())
-        assert np.isfinite(extreme.trimmed_mean(0.0, 1.0))
+    extreme = OriginalDigest.from_means_weights(means, weights)
+    # The published wheel performs both query products in the input dtype.
+    assert extreme.median() == np.inf
+    assert extreme.trimmed_mean(0.0, 1.0) == np.inf
 
 
 @pytest.mark.parametrize("precision", ["f32", "f64"])

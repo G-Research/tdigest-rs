@@ -60,6 +60,7 @@ def stage_compatibility_tests(root: Path, temporary: Path) -> tuple[Path, Path]:
     (parity / "data").mkdir(parents=True)
     for name in (
         "test_original_numerics.py",
+        "test_delta_wheel_parity.py",
         "test_legacy_compatibility.py",
         "test_optional_polars_import.py",
         "test_published_pickle_migration.py",
@@ -67,6 +68,7 @@ def stage_compatibility_tests(root: Path, temporary: Path) -> tuple[Path, Path]:
         shutil.copyfile(root / "bindings/python/tests" / name, parity / name)
     for name in (
         "upstream_numerical_golden.json",
+        "delta_wheel_parity.json",
         "published_0_1_0_pickle_golden.json",
     ):
         shutil.copyfile(root / "bindings/python/tests/data" / name, parity / "data" / name)

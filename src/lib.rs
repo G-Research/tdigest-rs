@@ -29,6 +29,8 @@ use jemallocator::Jemalloc;
 static ALLOC: Jemalloc = Jemalloc;
 
 #[cfg(feature = "python")]
+mod legacy_python;
+#[cfg(feature = "python")]
 mod py;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
@@ -41,6 +43,7 @@ use pyo3::types::PyModuleMethods;
 #[pyo3(name = "_native")]
 fn _native(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     crate::py::register(m)?;
+    legacy_python::register(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

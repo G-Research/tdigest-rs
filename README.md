@@ -133,7 +133,7 @@ From the repository root, run `make setup`, `make build`, and `make test`. Run `
 
 ## Legacy Python API
 
-For the original Python calling convention, pass `delta=` with a Float32 or Float64 NumPy array. Omitting both sizing arguments selects `delta=300`. Here `update` and `merge` return a new digest:
+For new Python code, pass `max_size=`, for example `TDigest.from_array(values, max_size=200)`. Existing calls that pass `delta=` or omit both sizing arguments run the deprecated 0.1.0 algorithm. Its Float32 and Float64 centroids and queries match the published wheel, including when reloading old means and weights. The default delta is 300. In this API, `update` and `merge` return a new digest.
 
 ```python
 import numpy as np

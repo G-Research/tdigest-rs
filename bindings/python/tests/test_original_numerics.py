@@ -1,8 +1,8 @@
-"""Exercise the modern core with the archived upstream numerical inputs."""
+"""Compare public delta operations with the original Rust numerical fixture."""
 
 import copy
 import json
-import math
+import struct
 from pathlib import Path
 import pickle
 
@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 from tdigest_rs import TDigest
-from tdigest_rs._modern import TDigest as Modern
 
 REFERENCE = json.loads((Path(__file__).parent / "data/upstream_numerical_golden.json").read_text())
 
@@ -37,7 +36,7 @@ def dataset(name, dtype):
 
 
 @pytest.mark.parametrize("case", REFERENCE["cases"], ids=lambda case: case["name"])
-def test_upstream_inputs_on_shared_core(case):
+def test_upstream_numerics_bit_for_bit(case):
     dtype = np.dtype(case["dtype"]).type
     params = case["input"]
     values = dataset(params["dataset"], dtype)
@@ -67,22 +66,13 @@ def test_upstream_inputs_on_shared_core(case):
             digest = TDigest.from_dict(digest.to_dict())
         else:
             assert op == "from_array"
-    # The old engine's exact outputs remain archived in the unchanged fixture.
-    # The compatibility adapter preserves input precision and integral mass.
     assert digest.means.dtype == dtype
     assert digest.weights.dtype == np.uint32
-    weights = np.asarray(params.get("weights", np.ones(len(values))), dtype=np.uint32)
-    assert int(digest.weights.sum()) == int(weights[~np.isnan(values)].sum())
-    assert np.all(digest.means[:-1] <= digest.means[1:])
-    if not len(digest):
-        assert math.isnan(digest.median())
-        return
-    assert digest.quantile(0) <= digest.median() <= digest.quantile(1)
-    if np.isfinite(values).all() and op in ("from_array", "from_means_weights"):
-        reference = Modern.from_means_weights(
-            values, weights, delta=params["delta"], precision="f32" if dtype == np.float32 else "f64"
-        )
-        np.testing.assert_array_equal(digest.means, reference.means)
-        np.testing.assert_array_equal(digest.weights, reference.weights)
-        for q in (0, 0.01, 0.5, 0.99, 1):
-            assert digest.quantile(q) == reference.quantile(q)
+    assert [struct.pack(">d", m).hex() for m in digest.means] == case["means"]
+    assert digest.weights.tolist() == case["weights"]
+    assert struct.pack(">d", digest.median()).hex() == case["median"]
+    for q_bits, expected in case["quantiles"]:
+        (q,) = struct.unpack(">d", bytes.fromhex(q_bits))
+        assert struct.pack(">d", digest.quantile(q)).hex() == expected
+    for lo, hi, expected in case["trimmed_means"]:
+        assert struct.pack(">d", digest.trimmed_mean(lo, hi)).hex() == expected

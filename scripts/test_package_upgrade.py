@@ -49,7 +49,7 @@ if sys.argv[1] == 'record':
                     payload=pickle.dumps(original, protocol=5)
                     rows.append({'dtype': str(values.dtype), 'n': n, 'seed': seed, 'delta': delta,
                                  'pickle': base64.b64encode(payload).decode(),
-                                 'saved': snapshot(original)})
+                                 'saved': snapshot(original), 'restored': snapshot(pickle.loads(payload))})
     assert len(rows) == 32
     path.write_text(json.dumps(rows, indent=2)+'\n')
 else:
@@ -64,7 +64,7 @@ else:
         weights = np.frombuffer(base64.b64decode(saved['weights']), dtype=saved['weights_dtype'])
         expected = TDigest.from_means_weights(means, weights)
         actual = pickle.loads(base64.b64decode(row['pickle']))
-        assert snapshot(actual) == snapshot(expected), row
+        assert snapshot(actual) == snapshot(expected) == row['restored'], row
         assert actual.weights.sum() == weights.sum(), row
 print(json.dumps({'version': version('tdigest-rs'), 'restored_states': len(rows), 'status': 'PASS'}))
 """
