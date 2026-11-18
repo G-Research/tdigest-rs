@@ -50,7 +50,7 @@ jobs:
         run: |
           version=${{ github.event.inputs.version }}
           echo "::group::Updating version to $version"
-          cargo install cargo-edit
+          cargo install cargo-edit --version 0.13.13 --locked
           cargo set-version --package tdigest-rs "$version"
           git add Cargo.toml Cargo.lock
           if ! git diff --cached --quiet; then
