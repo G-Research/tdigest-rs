@@ -34,12 +34,34 @@ jobs:
     steps:
       - run: echo "All required checks done"
 
-  release:
+  # PyPI Trusted Publishing does not support reusable workflows: the attestation
+  # certificate names this file, so the PyPI publish job must live here and the
+  # trusted publisher on PyPI must be configured for ci.yml with the release environment.
+  pypi-publish:
+    name: Publish to PyPI
     if: ${{ !github.event.repository.fork && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     needs: all-required-checks-done
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: python-package-*
+          merge-multiple: true
+          path: dist
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+
+  release:
+    if: ${{ !github.event.repository.fork && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    needs:
+      - all-required-checks-done
+      - pypi-publish
     permissions:
       actions: write
       contents: write
-      id-token: write
     secrets: inherit
     uses: ./.github/workflows/release.yml
