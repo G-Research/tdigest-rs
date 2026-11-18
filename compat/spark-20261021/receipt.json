@@ -1,0 +1,350 @@
+[
+  {
+    "application_sha256": "6245450c3e9a4308482582c69406dfa9a05643b859271a128e5e378f77c36244",
+    "checkpoint": "file:///tmp/tdigest-spark-0q4gljs2/checkpoint",
+    "checkpoint_retention": "temporary local filesystem; removed after check",
+    "commands": [
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/java",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-version"
+        ],
+        "exit_code": 0,
+        "log": "compiler-version.log",
+        "log_sha256": "eff93db7e800c6f086ef106f5dc8277e32ee761163fcf43cd7bd5a90a887f762"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/java",
+          "-Xmx1g",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-target:jvm-1.8",
+          "-classpath",
+          "/tmp/tdigest-spark-0q4gljs2/spark/jars/*:/tmp/tdigest-spark-0q4gljs2/gr-tdigest-0.2.5-dev2026102102.jar",
+          "-d",
+          "/tmp/tdigest-spark-0q4gljs2/classes",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/gr-tdigest-story/bindings/java/examples/spark/TDigestSparkCheck.scala"
+        ],
+        "exit_code": 0,
+        "log": "compile.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/jar",
+          "cf",
+          "/tmp/tdigest-spark-0q4gljs2/tdigest-spark-check.jar",
+          "-C",
+          "/tmp/tdigest-spark-0q4gljs2/classes",
+          "."
+        ],
+        "exit_code": 0,
+        "log": "package.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/tmp/tdigest-spark-0q4gljs2/spark/bin/spark-submit",
+          "--class",
+          "gr.tdigest.example.TDigestSparkCheck",
+          "--master",
+          "local-cluster[2,1,512]",
+          "--driver-memory",
+          "512m",
+          "--conf",
+          "spark.driver.extraJavaOptions=-XX:ActiveProcessorCount=4",
+          "--conf",
+          "spark.executor.extraJavaOptions=-XX:ActiveProcessorCount=2",
+          "--jars",
+          "/tmp/tdigest-spark-0q4gljs2/gr-tdigest-0.2.5-dev2026102102.jar",
+          "/tmp/tdigest-spark-0q4gljs2/tdigest-spark-check.jar",
+          "file:///tmp/tdigest-spark-0q4gljs2/checkpoint",
+          "java",
+          "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+        ],
+        "exit_code": 0,
+        "log": "spark.log",
+        "log_sha256": "cb7f69934cb48eb7777cb1d580c9e3db7f134791c65237f9309846adb75f49c3"
+      }
+    ],
+    "compiler": "Scala compiler version 2.12.16 -- Copyright 2002-2022, LAMP/EPFL and Lightbend, Inc.",
+    "jar_manifest": "Manifest-Version: 1.0\r\nMain-Class: gr.SmokeMain\r\nImplementation-Title: gr-tdigest\r\nImplementation-Version: 0.2.5-dev2026102102\r\nTDigest-Source-SHA: aaf7ab3956fed4269c1eaeef915a6faee78fa305\r\nTDigest-Native-Allocator: system\r\nTDigest-Native-SHA256: f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0\r\n e3f1d5581484fc2\r\n\r\n",
+    "jar_sha256": "6ec33b14d0add563fa6d11569d5585383d0d8a8a4f543bf7edb7cf59bba863cc",
+    "java_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1",
+    "master": "local-cluster[2,1,512]",
+    "native_sha256": "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2",
+    "runner_sha256": "698fa7dae99f1a14f4319bb23f0ef8ed78d31c32bee9caaba56354d37d77b40f",
+    "scala_source_sha256": "cb3d46181ebc054d1a59bafd633f528149accf60fa50a809da98646d08c7a589",
+    "scope": "Public consumer exercise; actual executor image, trust, serializers and workload need owner qualification",
+    "serializer": "java",
+    "spark_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followups-20261021/toolchains/spark-3.5.9-bin-hadoop3",
+    "status": "PASS",
+    "summary": "TDIGEST_SPARK_OK spark=3.5.9 scala=2.12.18 serializer=java driver=712655@archbox executorProcesses=712834@archbox,712833@archbox checkpoint=file:/tmp/tdigest-spark-0q4gljs2/checkpoint/0a45b702-bc81-4ff5-9f19-a26cf90afbd3/rdd-5 runtime=gr.tdigest:gr-tdigest:0.2.5-dev2026102102; jar=file:/tmp/tdigest-spark-0q4gljs2/gr-tdigest-0.2.5-dev2026102102.jar; bundled resource /META-INF/native/linux-x86_64/libgr_tdigest.so; path=/tmp/gr-tdigest-12781450752732092770/libgr_tdigest.so; sha256=f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+  },
+  {
+    "application_sha256": "985bb461e2b52ea3dae94224839d840d2c06a83b021fc94f29f12bcee47141c1",
+    "checkpoint": "file:///tmp/tdigest-spark-f01kqvkw/checkpoint",
+    "checkpoint_retention": "temporary local filesystem; removed after check",
+    "commands": [
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/java",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-version"
+        ],
+        "exit_code": 0,
+        "log": "compiler-version.log",
+        "log_sha256": "eff93db7e800c6f086ef106f5dc8277e32ee761163fcf43cd7bd5a90a887f762"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/java",
+          "-Xmx1g",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-target:jvm-1.8",
+          "-classpath",
+          "/tmp/tdigest-spark-f01kqvkw/spark/jars/*:/tmp/tdigest-spark-f01kqvkw/gr-tdigest-0.2.5-dev2026102102.jar",
+          "-d",
+          "/tmp/tdigest-spark-f01kqvkw/classes",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/gr-tdigest-story/bindings/java/examples/spark/TDigestSparkCheck.scala"
+        ],
+        "exit_code": 0,
+        "log": "compile.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1/bin/jar",
+          "cf",
+          "/tmp/tdigest-spark-f01kqvkw/tdigest-spark-check.jar",
+          "-C",
+          "/tmp/tdigest-spark-f01kqvkw/classes",
+          "."
+        ],
+        "exit_code": 0,
+        "log": "package.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/tmp/tdigest-spark-f01kqvkw/spark/bin/spark-submit",
+          "--class",
+          "gr.tdigest.example.TDigestSparkCheck",
+          "--master",
+          "local-cluster[2,1,512]",
+          "--driver-memory",
+          "512m",
+          "--conf",
+          "spark.driver.extraJavaOptions=-XX:ActiveProcessorCount=4",
+          "--conf",
+          "spark.executor.extraJavaOptions=-XX:ActiveProcessorCount=2",
+          "--jars",
+          "/tmp/tdigest-spark-f01kqvkw/gr-tdigest-0.2.5-dev2026102102.jar",
+          "/tmp/tdigest-spark-f01kqvkw/tdigest-spark-check.jar",
+          "file:///tmp/tdigest-spark-f01kqvkw/checkpoint",
+          "kryo",
+          "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+        ],
+        "exit_code": 0,
+        "log": "spark.log",
+        "log_sha256": "83afd7d01a333383572219af7596feeb7ad3f3b091f07dc5191293e309b1458a"
+      }
+    ],
+    "compiler": "Scala compiler version 2.12.16 -- Copyright 2002-2022, LAMP/EPFL and Lightbend, Inc.",
+    "jar_manifest": "Manifest-Version: 1.0\r\nMain-Class: gr.SmokeMain\r\nImplementation-Title: gr-tdigest\r\nImplementation-Version: 0.2.5-dev2026102102\r\nTDigest-Source-SHA: aaf7ab3956fed4269c1eaeef915a6faee78fa305\r\nTDigest-Native-Allocator: system\r\nTDigest-Native-SHA256: f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0\r\n e3f1d5581484fc2\r\n\r\n",
+    "jar_sha256": "6ec33b14d0add563fa6d11569d5585383d0d8a8a4f543bf7edb7cf59bba863cc",
+    "java_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e/jdk-17.0.20.1+1",
+    "master": "local-cluster[2,1,512]",
+    "native_sha256": "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2",
+    "runner_sha256": "698fa7dae99f1a14f4319bb23f0ef8ed78d31c32bee9caaba56354d37d77b40f",
+    "scala_source_sha256": "cb3d46181ebc054d1a59bafd633f528149accf60fa50a809da98646d08c7a589",
+    "scope": "Public consumer exercise; actual executor image, trust, serializers and workload need owner qualification",
+    "serializer": "kryo",
+    "spark_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followups-20261021/toolchains/spark-3.5.9-bin-hadoop3",
+    "status": "PASS",
+    "summary": "TDIGEST_SPARK_OK spark=3.5.9 scala=2.12.18 serializer=kryo driver=713389@archbox executorProcesses=713592@archbox,713593@archbox checkpoint=file:/tmp/tdigest-spark-f01kqvkw/checkpoint/c565f6df-1d8d-428d-8ba3-a5791f67f0dc/rdd-5 runtime=gr.tdigest:gr-tdigest:0.2.5-dev2026102102; jar=file:/tmp/tdigest-spark-f01kqvkw/gr-tdigest-0.2.5-dev2026102102.jar; bundled resource /META-INF/native/linux-x86_64/libgr_tdigest.so; path=/tmp/gr-tdigest-10355647644100113602/libgr_tdigest.so; sha256=f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+  },
+  {
+    "application_sha256": "5426f1142f370074ce01a15718cad941f7e3edf90cc31da4b6507c8771afccfc",
+    "checkpoint": "file:///tmp/tdigest-spark-wf1q_6e3/checkpoint",
+    "checkpoint_retention": "temporary local filesystem; removed after check",
+    "commands": [
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/java",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-version"
+        ],
+        "exit_code": 0,
+        "log": "compiler-version.log",
+        "log_sha256": "eff93db7e800c6f086ef106f5dc8277e32ee761163fcf43cd7bd5a90a887f762"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/java",
+          "-Xmx1g",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-target:jvm-1.8",
+          "-classpath",
+          "/tmp/tdigest-spark-wf1q_6e3/spark/jars/*:/tmp/tdigest-spark-wf1q_6e3/gr-tdigest-0.2.5-dev2026102102.jar",
+          "-d",
+          "/tmp/tdigest-spark-wf1q_6e3/classes",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/gr-tdigest-story/bindings/java/examples/spark/TDigestSparkCheck.scala"
+        ],
+        "exit_code": 0,
+        "log": "compile.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/jar",
+          "cf",
+          "/tmp/tdigest-spark-wf1q_6e3/tdigest-spark-check.jar",
+          "-C",
+          "/tmp/tdigest-spark-wf1q_6e3/classes",
+          "."
+        ],
+        "exit_code": 0,
+        "log": "package.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/tmp/tdigest-spark-wf1q_6e3/spark/bin/spark-submit",
+          "--class",
+          "gr.tdigest.example.TDigestSparkCheck",
+          "--master",
+          "local-cluster[2,1,512]",
+          "--driver-memory",
+          "512m",
+          "--conf",
+          "spark.driver.extraJavaOptions=-XX:ActiveProcessorCount=4",
+          "--conf",
+          "spark.executor.extraJavaOptions=-XX:ActiveProcessorCount=2",
+          "--jars",
+          "/tmp/tdigest-spark-wf1q_6e3/gr-tdigest-0.2.5-dev2026102102.jar",
+          "/tmp/tdigest-spark-wf1q_6e3/tdigest-spark-check.jar",
+          "file:///tmp/tdigest-spark-wf1q_6e3/checkpoint",
+          "java",
+          "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+        ],
+        "exit_code": 0,
+        "log": "spark.log",
+        "log_sha256": "b1b57b36061b38e87f6307241236a3aa4b6c676a8d76519254ed77737c9a4eb3"
+      }
+    ],
+    "compiler": "Scala compiler version 2.12.16 -- Copyright 2002-2022, LAMP/EPFL and Lightbend, Inc.",
+    "jar_manifest": "Manifest-Version: 1.0\r\nMain-Class: gr.SmokeMain\r\nImplementation-Title: gr-tdigest\r\nImplementation-Version: 0.2.5-dev2026102102\r\nTDigest-Source-SHA: aaf7ab3956fed4269c1eaeef915a6faee78fa305\r\nTDigest-Native-Allocator: system\r\nTDigest-Native-SHA256: f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0\r\n e3f1d5581484fc2\r\n\r\n",
+    "jar_sha256": "6ec33b14d0add563fa6d11569d5585383d0d8a8a4f543bf7edb7cf59bba863cc",
+    "java_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1",
+    "master": "local-cluster[2,1,512]",
+    "native_sha256": "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2",
+    "runner_sha256": "698fa7dae99f1a14f4319bb23f0ef8ed78d31c32bee9caaba56354d37d77b40f",
+    "scala_source_sha256": "cb3d46181ebc054d1a59bafd633f528149accf60fa50a809da98646d08c7a589",
+    "scope": "Public consumer exercise; actual executor image, trust, serializers and workload need owner qualification",
+    "serializer": "java",
+    "spark_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followups-20261021/toolchains/spark-3.5.9-bin-hadoop3",
+    "status": "PASS",
+    "summary": "TDIGEST_SPARK_OK spark=3.5.9 scala=2.12.18 serializer=java driver=714157@archbox executorProcesses=714304@archbox,714303@archbox checkpoint=file:/tmp/tdigest-spark-wf1q_6e3/checkpoint/88d14725-405b-440f-a070-51dd27126b9e/rdd-5 runtime=gr.tdigest:gr-tdigest:0.2.5-dev2026102102; jar=file:/tmp/tdigest-spark-wf1q_6e3/gr-tdigest-0.2.5-dev2026102102.jar; bundled resource /META-INF/native/linux-x86_64/libgr_tdigest.so; path=/tmp/gr-tdigest-16169332494974596339/libgr_tdigest.so; sha256=f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+  },
+  {
+    "application_sha256": "7970b71c2bf56a88ff6aae8bc3418a53056f2f6a2524f9c68bc7f2d3aa3139e4",
+    "checkpoint": "file:///tmp/tdigest-spark-_7h2k9du/checkpoint",
+    "checkpoint_retention": "temporary local filesystem; removed after check",
+    "commands": [
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/java",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-version"
+        ],
+        "exit_code": 0,
+        "log": "compiler-version.log",
+        "log_sha256": "eff93db7e800c6f086ef106f5dc8277e32ee761163fcf43cd7bd5a90a887f762"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/java",
+          "-Xmx1g",
+          "-cp",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-compiler/2.12.16/scala-compiler-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-library/2.12.16/scala-library-2.12.16.jar:/home/ingo/Documents/ChatGPT/gr-tdigest 2/candidate-20261020/maven-fixture/org/scala-lang/scala-reflect/2.12.16/scala-reflect-2.12.16.jar",
+          "scala.tools.nsc.Main",
+          "-target:jvm-1.8",
+          "-classpath",
+          "/tmp/tdigest-spark-_7h2k9du/spark/jars/*:/tmp/tdigest-spark-_7h2k9du/gr-tdigest-0.2.5-dev2026102102.jar",
+          "-d",
+          "/tmp/tdigest-spark-_7h2k9du/classes",
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/gr-tdigest-story/bindings/java/examples/spark/TDigestSparkCheck.scala"
+        ],
+        "exit_code": 0,
+        "log": "compile.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1/bin/jar",
+          "cf",
+          "/tmp/tdigest-spark-_7h2k9du/tdigest-spark-check.jar",
+          "-C",
+          "/tmp/tdigest-spark-_7h2k9du/classes",
+          "."
+        ],
+        "exit_code": 0,
+        "log": "package.log",
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "command": [
+          "/tmp/tdigest-spark-_7h2k9du/spark/bin/spark-submit",
+          "--class",
+          "gr.tdigest.example.TDigestSparkCheck",
+          "--master",
+          "local-cluster[2,1,512]",
+          "--driver-memory",
+          "512m",
+          "--conf",
+          "spark.driver.extraJavaOptions=-XX:ActiveProcessorCount=4",
+          "--conf",
+          "spark.executor.extraJavaOptions=-XX:ActiveProcessorCount=2",
+          "--jars",
+          "/tmp/tdigest-spark-_7h2k9du/gr-tdigest-0.2.5-dev2026102102.jar",
+          "/tmp/tdigest-spark-_7h2k9du/tdigest-spark-check.jar",
+          "file:///tmp/tdigest-spark-_7h2k9du/checkpoint",
+          "kryo",
+          "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+        ],
+        "exit_code": 0,
+        "log": "spark.log",
+        "log_sha256": "140b7975733fec8d5874b46b4c6cbf40df3683cc00df145f4b083ec690e093f9"
+      }
+    ],
+    "compiler": "Scala compiler version 2.12.16 -- Copyright 2002-2022, LAMP/EPFL and Lightbend, Inc.",
+    "jar_manifest": "Manifest-Version: 1.0\r\nMain-Class: gr.SmokeMain\r\nImplementation-Title: gr-tdigest\r\nImplementation-Version: 0.2.5-dev2026102102\r\nTDigest-Source-SHA: aaf7ab3956fed4269c1eaeef915a6faee78fa305\r\nTDigest-Native-Allocator: system\r\nTDigest-Native-SHA256: f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0\r\n e3f1d5581484fc2\r\n\r\n",
+    "jar_sha256": "6ec33b14d0add563fa6d11569d5585383d0d8a8a4f543bf7edb7cf59bba863cc",
+    "java_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followup-20261020/toolchains/jdk-5c3f68887c325d36d852ba534303e1f5f1f5cae7d6cc1e951d73e0d8e98a058d/jdk-11.0.32.1+1",
+    "master": "local-cluster[2,1,512]",
+    "native_sha256": "f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2",
+    "runner_sha256": "698fa7dae99f1a14f4319bb23f0ef8ed78d31c32bee9caaba56354d37d77b40f",
+    "scala_source_sha256": "cb3d46181ebc054d1a59bafd633f528149accf60fa50a809da98646d08c7a589",
+    "scope": "Public consumer exercise; actual executor image, trust, serializers and workload need owner qualification",
+    "serializer": "kryo",
+    "spark_home": "/home/ingo/Documents/ChatGPT/gr-tdigest 2/followups-20261021/toolchains/spark-3.5.9-bin-hadoop3",
+    "status": "PASS",
+    "summary": "TDIGEST_SPARK_OK spark=3.5.9 scala=2.12.18 serializer=kryo driver=714742@archbox executorProcesses=714933@archbox,714932@archbox checkpoint=file:/tmp/tdigest-spark-_7h2k9du/checkpoint/88c66482-073a-44ae-b558-6caa777e115b/rdd-5 runtime=gr.tdigest:gr-tdigest:0.2.5-dev2026102102; jar=file:/tmp/tdigest-spark-_7h2k9du/gr-tdigest-0.2.5-dev2026102102.jar; bundled resource /META-INF/native/linux-x86_64/libgr_tdigest.so; path=/tmp/gr-tdigest-8863413417259233479/libgr_tdigest.so; sha256=f254f1ff7b619e62fcb9879ad1a31593d74dcd01ea89361e0e3f1d5581484fc2"
+  }
+]

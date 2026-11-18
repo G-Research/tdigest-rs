@@ -1,0 +1,18 @@
+# Independent generated reference fixtures.
+bindings/python/tests/data/upstream_numerical_golden.json linguist-generated=true
+bindings/python/tests/data/published_0_1_0_pickle_golden.json linguist-generated=true
+compat/numerical-review/original-rust/oracle/recorded/** linguist-generated=true
+
+# Preserve bytes verified by the original-source and fixture checksums.
+bindings/python/tests/data/*.json text eol=lf
+bindings/python/tdigest_rs/lib.py text eol=lf
+tests/upstream_legacy/bindings/python/benchmarks/run.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/__init__.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/conftest.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/constants.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/test_distributions.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/test_tdigest.py text eol=lf
+tests/upstream_legacy/bindings/python/tests/utils.py text eol=lf
+
+# The Windows launcher intentionally uses CRLF.
+bindings/java/gradlew.bat -text whitespace=cr-at-eol

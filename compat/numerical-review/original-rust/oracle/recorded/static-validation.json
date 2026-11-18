@@ -1,0 +1,10 @@
+{
+  "status": "static harness validation only; no Cargo execution",
+  "fixture_self_comparison": {
+    "exact_bits": 1762,
+    "nan_classification": 126
+  },
+  "deliberate_median_corruption_detected": true,
+  "rustfmt_checked": true,
+  "source_manifest_sha256": "c5bd6ccb3347cccfdf7e67b3a5f8b49f04609aba55ff6842dff006b971fb109e"
+}

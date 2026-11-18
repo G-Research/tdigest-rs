@@ -1,0 +1,19 @@
+{
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/bindings/python"
+  ],
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.testing.cwd": "${workspaceFolder}",
+  "python.testing.pytestArgs": [
+    "bindings/python/tests",
+    "integration/api_coherence"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestPath": "${workspaceFolder}/.venv/bin/pytest",
+  "python.testing.unittestEnabled": false,
+  "rust-analyzer.testExplorer": true,
+  "terminal.integrated.env.linux": {
+    "UV_PROJECT_ENVIRONMENT": "${workspaceFolder}/.venv"
+  }
+}

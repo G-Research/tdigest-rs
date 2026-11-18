@@ -1,0 +1,43 @@
+[
+  {
+    "archive_sha256": "b70182d0d0508e9abbb79306ce5c0cec34869000f8220175ac83d11dbe845401",
+    "columns": [
+      "cnt",
+      "temp",
+      "hum",
+      "windspeed"
+    ],
+    "credit": "Hadi Fanaee-T (2013)",
+    "derived_file": "bike.csv.gz",
+    "derived_sha256": "a1327622da718c91a5eacb97eacd29339609dfaf86b93db2e5593e4359e9c088",
+    "doi": "10.24432/C5W894",
+    "download_url": "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip",
+    "id": "bike",
+    "license": "CC-BY-4.0",
+    "modifications": "Selected measured columns; preserved every source row and original numeric text; removed other columns; deterministic gzip compression. Energy rv1/rv2 random columns excluded.",
+    "rows": 17379,
+    "source_member": "hour.csv",
+    "source_sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f"
+  },
+  {
+    "archive_sha256": "2fccf354445d886e7917620b0195db1f3e3e34d5a067a93b844694a4c561255a",
+    "columns": [
+      "Appliances",
+      "lights",
+      "T_out",
+      "RH_out",
+      "Windspeed"
+    ],
+    "credit": "Luis Candanedo (2017)",
+    "derived_file": "energy.csv.gz",
+    "derived_sha256": "0fd54becb3b41b08b593a5ad1cb0872300d6efc55636b3ecb01459c78c038cd0",
+    "doi": "10.24432/C5VC8G",
+    "download_url": "https://archive.ics.uci.edu/static/public/374/appliances+energy+prediction.zip",
+    "id": "energy",
+    "license": "CC-BY-4.0",
+    "modifications": "Selected measured columns; preserved every source row and original numeric text; removed other columns; deterministic gzip compression. Energy rv1/rv2 random columns excluded.",
+    "rows": 19735,
+    "source_member": "energydata_complete.csv",
+    "source_sha256": "2820bf712ad0275cb18b85a05250926100d8e65ebb9f4d2d016ca91ea152a25d"
+  }
+]

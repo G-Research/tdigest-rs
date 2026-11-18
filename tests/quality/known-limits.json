@@ -1,0 +1,46 @@
+{
+  "findings": {
+    "synthetic/bimodal/f32/size32/natural/balanced40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f32/size32/natural/left40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f32/size32/reverse/balanced40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f32/size32/reverse/left40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f64/size32/natural/balanced40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f64/size32/natural/left40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f64/size32/reverse/balanced40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/bimodal/f64/size32/reverse/left40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/signed_scale/f32/size32/reverse/left40": [
+      "rank_max",
+      "cdf_max"
+    ],
+    "synthetic/signed_scale/f64/size32/reverse/left40": [
+      "rank_max",
+      "cdf_max"
+    ]
+  },
+  "meaning": "These ten size32 synthetic repeated-merge profiles FAIL the rank/CDF accuracy limit. This inventory is not a waiver or a corrected result. Any added, removed or changed finding requires review.",
+  "protocol_sha256": "fd40a56da637f76258665f2c200de18d51a9c00e7d72492bb8f7c9867b9d706d"
+}

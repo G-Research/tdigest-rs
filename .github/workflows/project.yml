@@ -1,0 +1,97 @@
+name: Cross-language project
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  java-runtime:
+    name: Java ${{ matrix.java }} JNI and standalone JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # Java 21 is exercised by the full-project job below.
+        java: ["11", "17", "25"]
+        include:
+          - java: "25"
+            gradle-url: https://services.gradle.org/distributions/gradle-9.1.0-bin.zip
+            gradle-sha256: a17ddd85a26b6a7f5ddb71ff8b05fc5104c0202c6e64782429790c933686c806
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - name: Bootstrap contracts without external downloads
+        run: make java-bootstrap-test
+      - name: Java/JNI contracts, packaged runtime and Java 11 class files
+        env:
+          TDIGEST_GRADLE_URL: ${{ matrix.gradle-url }}
+          TDIGEST_GRADLE_SHA256: ${{ matrix.gradle-sha256 }}
+        run: bindings/java/gradlew --no-daemon --console=plain -p bindings/java test jar smoke verifyJava11Bytecode
+      - name: Retain Java results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: java-${{ matrix.java }}-results
+          path: bindings/java/build/test-results/test/*.xml
+          if-no-files-found: error
+
+  build-and-test:
+    name: Rust, Python, Polars and JVM contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/.venv
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install locked development dependencies
+        run: |
+          python -m pip install uv==0.9.5
+          uv sync --locked --no-install-project --project bindings/python --group dev --python 3.12
+      - name: Stage the repository's pinned Rust toolchain
+        run: |
+          channel=$(python -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')
+          rustup toolchain install "$channel" --profile minimal --component rustfmt --component clippy
+      - name: Build all surfaces
+        run: make build
+      - name: Test all surfaces and original compatibility
+        run: make test
+      - name: Verify standalone JVM artifact
+        run: bindings/java/gradlew --no-daemon --console=plain -p bindings/java smoke verifyJava11Bytecode
+      - name: Verify a renamed native override in a standalone JAR
+        run: |
+          override_dir="$RUNNER_TEMP/tdigest-native-override"
+          mkdir -p "$override_dir"
+          cp target/release/libtdigest_rs.so "$override_dir/custom-native-name.so"
+          TDIGEST_NATIVE_FILE="$override_dir/custom-native-name.so" \
+          TDIGEST_SOURCE_SHA="$GITHUB_SHA" \
+          bindings/java/gradlew --no-daemon --console=plain --offline -p bindings/java jar
+          version=$(python -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          jar_path="$PWD/bindings/java/build/libs/tdigest-rs-$version.jar"
+          cd "$RUNNER_TEMP"
+          "$JAVA_HOME/bin/java" -jar "$jar_path"
+      - name: Extended accuracy regression checks
+        run: make quality-regression
+      - name: Retain separate legacy, cross-language and accuracy results
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: quality-results
+          path: |
+            build/quality/
+            build/ci/*.xml
+            bindings/java/build/test-results/test/*.xml
+          if-no-files-found: ignore

@@ -1,3 +1,46 @@
-from tdigest_rs.lib import TDigest
+"""T-digests with delta compatibility and modern capacity-based construction."""
 
-__all__ = ["TDigest"]
+from ._modern import (
+    DEFAULT_MAX_SIZE,
+    ScaleFamily,
+    SingletonPolicy,
+    __version__,
+    add_values,
+    add_weighted_values,
+    cast_precision,
+    cdf,
+    from_bytes,
+    infer_column_precision,
+    median,
+    merge_tdigests,
+    quantile,
+    scale_values,
+    scale_weights,
+    tdigest,
+    to_bytes,
+    wire_precision,
+)
+from .lib import DEFAULT_DELTA, TDigest
+
+__all__ = [
+    "DEFAULT_DELTA",
+    "DEFAULT_MAX_SIZE",
+    "TDigest",
+    "ScaleFamily",
+    "SingletonPolicy",
+    "__version__",
+    "add_values",
+    "add_weighted_values",
+    "cast_precision",
+    "cdf",
+    "from_bytes",
+    "infer_column_precision",
+    "median",
+    "merge_tdigests",
+    "quantile",
+    "scale_values",
+    "scale_weights",
+    "tdigest",
+    "to_bytes",
+    "wire_precision",
+]

@@ -1,0 +1,89 @@
+{
+  "started_utc": "2026-10-14T23:28:38.822855+00:00",
+  "plan": {
+    "status": "prepared only; no Cargo execution",
+    "upstream_commit": "8d9cf1fe82c5c9254e5dc9593f01717e317f4333",
+    "fixture_source_commit": "52f6212008111b62fa07374278b850868b9ea77e",
+    "source_archive_sha256": "81133f4643ac40ae7ad508c46e187898d487c4f6562fdc24ed0081115c52808c",
+    "original_file_count": 35,
+    "original_lock_sha256": "f37b4bc2afb2fc07c0e7c9f2787cd6cedd9b82fea724e3ad536ddaf679c4ac76",
+    "oracle_source_sha256": "6722a98c481045f408183efd08a575fa95a894f87ed6ec74ac9f994b9486775c",
+    "runner_sha256": "4d7f0d6623be897dcb10d48c261d6a00f8bd98ab94410f0fb8fac960e75d4a6e",
+    "golden_sha256": "517ec82ec124e55920c7049a95f0eb0c9f3e96cf60b4ee7d4457bf31b7a98560",
+    "case_count": 70,
+    "added_dependencies": [],
+    "original_manifest_changes": [],
+    "original_source_changes": [],
+    "run_command_when_cpu_assigned": [
+      "python3",
+      "/var/tmp/codex-tdigest-pr3-20261014/overnight/numerical-review/original-committed-lock-oracle/run_oracle.py",
+      "--run",
+      "--profiles",
+      "release",
+      "debug"
+    ],
+    "comparison_contract": "Exact finite/infinite/signed-zero f64-encoded bits; NaN classification only. Inputs, weights, case names/order and lengths also checked. No fixture regeneration."
+  },
+  "runs": [
+    {
+      "profile": "release",
+      "command": [
+        "/usr/sbin/cargo",
+        "run",
+        "--locked",
+        "--package",
+        "tdigest_core",
+        "--example",
+        "committed_lock_oracle",
+        "--release"
+      ],
+      "cwd": "/var/tmp/codex-tdigest-pr3-20261014/overnight/numerical-review/original-committed-lock-oracle/source",
+      "elapsed_seconds": 4.046763558002567,
+      "exit_code": 0,
+      "stdout_sha256": "2885f3fefbe0400624688eafe87b8f244c5432cb419f71e83b072cabfa125f7c",
+      "stderr_sha256": "6a4766fe42ba5fd640ecb6a804adc7237027fa7b779b0f484fa0e319cee24fff",
+      "comparison": {
+        "case_count": 70,
+        "numeric_comparisons": {
+          "exact_bits": 1762,
+          "nan_classification": 126
+        },
+        "failures": []
+      },
+      "binary_sha256": "df9ba5f181fb109bc652699b1cf930bc25fb09ce916aa47bdc30935db504d275"
+    },
+    {
+      "profile": "debug",
+      "command": [
+        "/usr/sbin/cargo",
+        "run",
+        "--locked",
+        "--package",
+        "tdigest_core",
+        "--example",
+        "committed_lock_oracle"
+      ],
+      "cwd": "/var/tmp/codex-tdigest-pr3-20261014/overnight/numerical-review/original-committed-lock-oracle/source",
+      "elapsed_seconds": 2.160414516001765,
+      "exit_code": 0,
+      "stdout_sha256": "2885f3fefbe0400624688eafe87b8f244c5432cb419f71e83b072cabfa125f7c",
+      "stderr_sha256": "234bd8074b5c5351e66eb5bc5e6d1be820101aa2838f5950ba91f73bce1ddd66",
+      "comparison": {
+        "case_count": 70,
+        "numeric_comparisons": {
+          "exact_bits": 1762,
+          "nan_classification": 126
+        },
+        "failures": []
+      },
+      "binary_sha256": "e3f23d6de6854c7f74e6554ccc3430c68ef37fc3d59b6a4c774354482a6a5261"
+    }
+  ],
+  "toolchain": {
+    "rustc": "rustc 1.90.0 (1159e78c4 2025-09-14)\nbinary: rustc\ncommit-hash: 1159e78c4747b02ef996e55082b704c09b970588\ncommit-date: 2025-09-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.90.0\nLLVM version: 20.1.8\n",
+    "cargo": "cargo 1.90.0 (840b83a10 2025-07-30)\n"
+  },
+  "original_source_and_lock_unchanged": true,
+  "success": true,
+  "finished_utc": "2026-10-14T23:28:45.079061+00:00"
+}

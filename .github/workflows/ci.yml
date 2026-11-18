@@ -17,6 +17,10 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
     uses: ./.github/workflows/python.yml
 
+  project:
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
+    uses: ./.github/workflows/project.yml
+
   # Virtual job that can be configured as a required check before a PR can be merged.
   # As GitHub considers a check as successful if it is skipped, we need to check its status in
   # another workflow (check-required.yml) and create a check there.
@@ -26,6 +30,7 @@ jobs:
     needs:
       - rust
       - python
+      - project
     steps:
       - run: echo "All required checks done"
 

@@ -1,0 +1,36 @@
+plugins { id 'application' }
+repositories {
+  def selected = providers.environmentVariable('TDIGEST_MAVEN_REPOSITORY_URL').orNull
+  if (selected) {
+    maven {
+      url = uri(selected)
+      allowInsecureProtocol = uri(selected).scheme == 'http'
+      if (System.getenv('TDIGEST_MAVEN_USERNAME') != null) {
+        credentials {
+          username = System.getenv('TDIGEST_MAVEN_USERNAME')
+          password = System.getenv('TDIGEST_MAVEN_PASSWORD')
+        }
+      }
+    }
+  } else { mavenCentral() }
+}
+configurations { kotlinCompiler }
+dependencies {
+  kotlinCompiler 'org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.21'
+  implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.4.21'
+  implementation "com.gresearch.tdigest:tdigest-rs:${providers.gradleProperty('tdigestVersion').get()}"
+}
+def output = layout.buildDirectory.dir('classes/kotlin/main')
+tasks.register('compileKotlin', JavaExec) {
+  classpath = configurations.kotlinCompiler
+  mainClass = 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler'
+  inputs.file('src/main/kotlin/Example.kt')
+  inputs.files(configurations.runtimeClasspath).withPropertyName('compilationClasspath').withNormalizer(ClasspathNormalizer)
+  args '-jvm-target', '11', '-no-stdlib', '-no-reflect', '-classpath',
+       configurations.runtimeClasspath.asPath, '-d', output.get().asFile.absolutePath,
+       file('src/main/kotlin/Example.kt').absolutePath
+  outputs.dir(output)
+}
+sourceSets.main.output.dir(output, builtBy: tasks.named('compileKotlin'))
+tasks.named('classes') { dependsOn tasks.named('compileKotlin') }
+application { mainClass = 'demo.ExampleKt' }

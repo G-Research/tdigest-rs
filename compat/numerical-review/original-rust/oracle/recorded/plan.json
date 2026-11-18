@@ -1,0 +1,24 @@
+{
+  "status": "prepared only; no Cargo execution",
+  "upstream_commit": "8d9cf1fe82c5c9254e5dc9593f01717e317f4333",
+  "fixture_source_commit": "52f6212008111b62fa07374278b850868b9ea77e",
+  "source_archive_sha256": "81133f4643ac40ae7ad508c46e187898d487c4f6562fdc24ed0081115c52808c",
+  "original_file_count": 35,
+  "original_lock_sha256": "f37b4bc2afb2fc07c0e7c9f2787cd6cedd9b82fea724e3ad536ddaf679c4ac76",
+  "oracle_source_sha256": "6722a98c481045f408183efd08a575fa95a894f87ed6ec74ac9f994b9486775c",
+  "runner_sha256": "4d7f0d6623be897dcb10d48c261d6a00f8bd98ab94410f0fb8fac960e75d4a6e",
+  "golden_sha256": "517ec82ec124e55920c7049a95f0eb0c9f3e96cf60b4ee7d4457bf31b7a98560",
+  "case_count": 70,
+  "added_dependencies": [],
+  "original_manifest_changes": [],
+  "original_source_changes": [],
+  "run_command_when_cpu_assigned": [
+    "python3",
+    "/var/tmp/codex-tdigest-pr3-20261014/overnight/numerical-review/original-committed-lock-oracle/run_oracle.py",
+    "--run",
+    "--profiles",
+    "release",
+    "debug"
+  ],
+  "comparison_contract": "Exact finite/infinite/signed-zero f64-encoded bits; NaN classification only. Inputs, weights, case names/order and lengths also checked. No fixture regeneration."
+}

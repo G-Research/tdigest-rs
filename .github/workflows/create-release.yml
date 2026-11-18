@@ -51,10 +51,12 @@ jobs:
           version=${{ github.event.inputs.version }}
           echo "::group::Updating version to $version"
           cargo install cargo-edit
-          cargo set-version $version
-          git add Cargo.toml Cargo.lock bindings/python/Cargo.toml
-          git commit -m "Release $version"
-          git push
+          cargo set-version --package tdigest-rs "$version"
+          git add Cargo.toml Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m "Release $version"
+            git push
+          fi
           echo "::endgroup::"
 
       - name: Create tag

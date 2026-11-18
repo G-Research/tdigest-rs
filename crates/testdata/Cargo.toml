@@ -1,0 +1,10 @@
+[package]
+name = "testdata"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Synthetic dataset generators for t-digest benches and tests."
+
+[dependencies]
+rand        = "0.9.2"
+rand_distr  = "0.5"
