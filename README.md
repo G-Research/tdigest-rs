@@ -20,7 +20,7 @@ tdigest-rs is a Rust library for quantile and CDF queries on compact, mergeable 
 
 Once the 1.x wheels are available on PyPI, install with `python -m pip install 'tdigest-rs[polars]>=1.0,<2'`.
 
-Omit `[polars]` for Python and NumPy alone. To try 1.0 now, run this from the root of a source checkout with Rust 1.95 and CPython 3.10–3.15:
+Omit `[polars]` for Python and NumPy alone. To try 1.0 now, run this from the root of a source checkout with Rust 1.97 and CPython 3.10–3.15:
 
 ```sh
 python -m pip install './bindings/python[polars]'
