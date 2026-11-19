@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -30,9 +31,6 @@ jobs:
         github.event.workflow_run.conclusion == 'success' &&
         startsWith(github.event.workflow_run.head_branch, 'v')))
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
     outputs:
       run_id: ${{ steps.source.outputs.run_id }}
       tag: ${{ steps.source.outputs.tag }}

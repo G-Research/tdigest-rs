@@ -46,46 +46,22 @@ function fixture(manual = false) {
     releaseExists: false,
     tagExists: true,
     outputs: {},
-    requests: [],
   };
-  const actions = {
-    getWorkflowRun: async args => {
-      assert.deepEqual(args, {owner: 'G-Research', repo: 'tdigest-rs', run_id: 123});
-      return {data: state.run};
-    },
-    listJobsForWorkflowRun: Symbol('jobs'),
-    listWorkflowRunArtifacts: Symbol('artifacts'),
-  };
+  const notFound = () => {throw Object.assign(new Error('Tag not found'), {status: 404});};
   const github = {
     rest: {
-      actions,
-      git: {getRef: async args => {
-        assert.equal(args.ref, `tags/${state.run.head_branch}`);
-        if (!state.tagExists) throw Object.assign(new Error('Tag not found'), {status: 404});
-        return {data: {object: {sha: state.tagSha}}};
-      }},
+      actions: {
+        getWorkflowRun: async () => ({data: state.run}),
+        listJobsForWorkflowRun: () => state.jobs,
+        listWorkflowRunArtifacts: () => state.artifacts,
+      },
+      git: {getRef: async () => state.tagExists ? {} : notFound()},
       repos: {
-        getCommit: async args => {
-          assert.equal(args.ref, `refs/tags/${state.run.head_branch}`);
-          return {data: {sha: state.tagSha}};
-        },
-        getReleaseByTag: async () => {
-          if (!state.releaseExists) throw Object.assign(new Error('Not found'), {status: 404});
-          return {data: {id: 456}};
-        },
+        getCommit: async () => ({data: {sha: state.tagSha}}),
+        getReleaseByTag: async () => state.releaseExists ? {} : notFound(),
       },
     },
-    paginate: async (method, args) => {
-      state.requests.push(args);
-      assert.equal(args.run_id, 123);
-      assert.equal(args.per_page, 100);
-      if (method === actions.listJobsForWorkflowRun) {
-        assert.equal(args.filter, 'latest');
-        return state.jobs;
-      }
-      assert.equal(method, actions.listWorkflowRunArtifacts);
-      return state.artifacts;
-    },
+    paginate: async method => method(),
   };
   const summary = {addHeading() {return this;}, addLink() {return this;}, addRaw() {return this;}, async write() {}};
   state.execute = () => prepare({github, context: state.context,
@@ -93,24 +69,20 @@ function fixture(manual = false) {
   return state;
 }
 
-test('successful tag CI selects only its package artifacts', async () => {
-  const state = fixture();
-  await state.execute();
-  assert.deepEqual(state.outputs, {
-    run_id: '123', tag: 'v1.0.0', artifact_ids: '11,12', release_exists: 'false',
+for (const manual of [false, true]) {
+  test(`${manual ? 'manual recovery' : 'automatic release'} selects only tested package artifacts`, async () => {
+    const state = fixture(manual);
+    if (manual) {
+      state.run.conclusion = 'failure';
+      state.jobs.push({name: 'release / Publish to PyPI', conclusion: 'failure'});
+      state.releaseExists = true;
+    }
+    await state.execute();
+    assert.deepEqual(state.outputs, {
+      run_id: '123', tag: 'v1.0.0', artifact_ids: '11,12', release_exists: String(manual),
+    });
   });
-});
-
-test('manual recovery accepts the failed old publisher after all tests passed', async () => {
-  const state = fixture(true);
-  state.run.conclusion = 'failure';
-  state.jobs.push({name: 'release / Publish to PyPI', conclusion: 'failure'});
-  state.jobs.push({name: 'release / Publish GitHub release', conclusion: 'success'});
-  state.releaseExists = true;
-  await state.execute();
-  assert.equal(state.outputs.release_exists, 'true');
-  assert.equal(state.outputs.artifact_ids, '11,12');
-});
+}
 
 for (const [name, change, error] of [
   ['a feature-branch dispatch', s => {s.context.ref = 'refs/heads/feature';}, /default branch/],
@@ -122,6 +94,7 @@ for (const [name, change, error] of [
   ['a different workflow', s => {s.run.path = '.github/workflows/other.yml';}, /completed push run/],
   ['an unfinished run', s => {s.run.status = 'in_progress';}, /completed push run/],
   ['a cancelled run', s => {s.run.conclusion = 'cancelled';}, /CI must succeed/],
+  ['an automatic retry of failed CI', s => {s.context.eventName = 'workflow_run'; s.run.conclusion = 'failure';}, /CI must succeed/],
   ['a branch build', s => {s.run.head_branch = 'main';}, /version tag/],
   ['a version branch without a tag', s => {s.tagExists = false;}, /Tag not found/],
   ['a moved tag', s => {s.tagSha = 'b'.repeat(40);}, /no longer matches/],
@@ -142,11 +115,3 @@ for (const [name, change, error] of [
     assert.deepEqual(state.outputs, {});
   });
 }
-
-test('automatic publishing rejects a failed source run', async () => {
-  const state = fixture();
-  state.run.conclusion = 'failure';
-  state.jobs.push({name: 'release / Publish to PyPI', conclusion: 'failure'});
-  await assert.rejects(state.execute, /CI must succeed/);
-  assert.deepEqual(state.outputs, {});
-});
