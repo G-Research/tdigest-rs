@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Release 1.0.1 because PyPI rejected the 1.0.0 upload. Publish to PyPI from `ci.yml` because PyPI Trusted Publishing does not accept attestations from reusable workflows. Create the GitHub release only after the PyPI upload succeeds.
+
 * Upgrade the Rust toolchain to 1.97, update ethnum to its compatible 1.5.3 patch, and pin cargo-edit 0.13.14 with locked dependencies for release version updates.
 
 * Compare legacy arithmetic NaNs portably while checking all other bits against 0.1.0. Cover two-singleton and zero-heavy shard merges in the published-wheel fixture.

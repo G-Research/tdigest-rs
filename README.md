@@ -25,7 +25,7 @@ Omit `[polars]` for Python and NumPy alone. To try 1.0 now, run this from the ro
 ```sh
 python -m pip install './bindings/python[polars]'
 python -c "from importlib.metadata import version; print(version('tdigest-rs'))"
-# 1.0.0
+# 1.0.1
 ```
 
 ## Python
