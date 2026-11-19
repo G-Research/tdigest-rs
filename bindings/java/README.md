@@ -16,7 +16,7 @@ The optional bootstrap accepts archive URLs or local archive paths and verifies 
 | --- | --- |
 | `JAVA_HOME` | Select an installed JDK. `TDIGEST_JDK_URL` with `TDIGEST_JDK_SHA256` selects a verified archive instead. |
 | `TDIGEST_DOWNLOAD_USERNAME`, `TDIGEST_DOWNLOAD_PASSWORD` | Authenticate tool downloads. |
-| `TDIGEST_MAVEN_REPOSITORY_URL` | Select the exclusive Maven dependency source. Use `TDIGEST_MAVEN_USERNAME` and `TDIGEST_MAVEN_PASSWORD` when it requires credentials. |
+| `TDIGEST_MAVEN_REPOSITORY_URL` | Select the exclusive Maven dependency source. Without it, Maven Central is tried first with Google's Maven Central mirror as a fallback. Use `TDIGEST_MAVEN_USERNAME` and `TDIGEST_MAVEN_PASSWORD` when the selected repository requires credentials. |
 | `TDIGEST_TOOLCHAIN_CACHE`, `GRADLE_USER_HOME` | Set the tool installation cache and Gradle dependency cache. |
 | `CARGO_HOME`, `CARGO_TARGET_DIR` | Set the Rust source cache and native build output. |
 

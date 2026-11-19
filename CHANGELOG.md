@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+* Fall back to Google's Maven Central mirror when resolving Java dependencies.
+
 * Upgrade the Rust toolchain to 1.97, update ethnum to its compatible 1.5.3 patch, and pin cargo-edit 0.13.14 with locked dependencies for release version updates.
 
 * Compare legacy arithmetic NaNs portably while checking all other bits against 0.1.0. Cover two-singleton and zero-heavy shard merges in the published-wheel fixture.

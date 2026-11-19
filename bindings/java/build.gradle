@@ -23,6 +23,10 @@ repositories {
     }
   } else {
     mavenCentral()
+    maven {
+      name = 'googleMavenCentralMirror'
+      url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
+    }
   }
 }
 
