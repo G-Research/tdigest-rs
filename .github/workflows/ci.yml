@@ -33,13 +33,3 @@ jobs:
       - project
     steps:
       - run: echo "All required checks done"
-
-  release:
-    if: ${{ !github.event.repository.fork && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
-    needs: all-required-checks-done
-    permissions:
-      actions: write
-      contents: write
-      id-token: write
-    secrets: inherit
-    uses: ./.github/workflows/release.yml

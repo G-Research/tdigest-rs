@@ -131,6 +131,10 @@ See the [JVM guide](bindings/java/README.md) for build instructions and Scala, K
 
 From the repository root, run `make setup`, `make build`, and `make test`. Run `make lint` before contributing and include a changelog entry with each commit. See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md), and [Apache 2.0 license](LICENSE).
 
+To publish, run **Create release** in GitHub Actions with the version number. The tag starts CI; after its checks pass, the standalone **Release** workflow publishes the tested wheels and source archive to PyPI, then creates the GitHub release. PyPI's trusted publisher must name `G-Research/tdigest-rs`, workflow `release.yml`, environment `release`. The GitHub `release` environment must allow the `main` **branch**, because `workflow_run` executes there even when the source CI run tested a tag. Keep the existing tag restrictions and branch protections; do not select unrestricted deployments.
+
+To recover an upload failure, run **Release** from `main` and supply the tag's completed **CI run ID** as `run_id`. It verifies the tag and successful build/test gate, then downloads that run's immutable artifacts. It does not rebuild packages or move tags. Existing PyPI files and an existing GitHub release are left in place. For the original 1.0.0 publishing failure, the CI run ID is `44401145727`. Run the release guard tests locally with `node --test scripts/test_release_workflow.cjs`.
+
 ## Legacy Python API
 
 For new Python code, pass `max_size=`, for example `TDigest.from_array(values, max_size=200)`. Existing calls that pass `delta=` or omit both sizing arguments run the deprecated 0.1.0 algorithm. Its Float32 and Float64 centroids and queries match the published wheel, including when reloading old means and weights. The default delta is 300. In this API, `update` and `merge` return a new digest.
